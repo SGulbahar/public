@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lumen AIOps</title>
+<style>
+:root{
+  --bg:#eef2f8;--m1:#d8e8f8;--m2:#e4d8f8;--m3:#d8f0f0;--m4:#f0e8d8;--m5:#d8f0e4;
+  --glass:rgba(255,255,255,0.6);--glass2:rgba(255,255,255,0.84);
+  --brd:rgba(255,255,255,0.85);--brd2:rgba(180,200,240,0.38);
+  --sh:rgba(90,120,200,0.12);--sh2:rgba(70,100,180,0.07);
+  --acc:#2563eb;--acc2:#0891b2;--acc3:#7c3aed;
+  --red:#dc2626;--ora:#ea580c;--yel:#ca8a04;--grn:#059669;--tea:#0891b2;
+  --txt:#1e293b;--txt2:#64748b;--txt3:#94a3b8;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:'Courier New',Courier,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font);color:var(--txt);display:flex;flex-direction:column;background:var(--bg)}
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.bb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.6;animation:drift 20s ease-in-out infinite alternate}
+.b1{width:700px;height:700px;background:var(--m1);top:-150px;left:-100px}
+.b2{width:550px;height:550px;background:var(--m2);top:15%;right:-80px;animation-delay:-7s}
+.b3{width:500px;height:500px;background:var(--m3);bottom:-100px;left:25%;animation-delay:-13s}
+.b4{width:420px;height:420px;background:var(--m4);bottom:5%;right:15%;animation-delay:-4s}
+.b5{width:380px;height:380px;background:var(--m5);top:40%;left:40%;animation-delay:-10s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(25px,18px) scale(1.05)}}
+#giris-ekrani{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center}
+.giris-kart{width:440px;background:var(--glass2);backdrop-filter:blur(40px) saturate(2);border:1px solid var(--brd);border-radius:22px;padding:40px;box-shadow:0 20px 60px var(--sh);animation:li .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes li{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.l-hex{width:52px;height:52px;background:linear-gradient(135deg,var(--acc),var(--acc3));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.l-baslik{font-size:26px;font-weight:800;text-align:center;margin-bottom:4px}
+.l-alt{font-size:11px;color:var(--txt2);text-align:center;margin-bottom:24px}
+.l-etiket{font-size:10px;color:var(--txt2);letter-spacing:.1em;text-transform:uppercase;display:block;font-weight:700;margin-bottom:5px}
+.l-girdi{width:100%;padding:10px 14px;border-radius:9px;border:1px solid rgba(180,200,240,.5);background:rgba(255,255,255,.75);font-family:var(--mono);font-size:13px;color:var(--txt);outline:none;transition:all .15s;margin-bottom:14px}
+.l-girdi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.l-hata{font-size:11px;color:var(--red);text-align:center;margin-bottom:10px;display:none}
+.l-btn{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--acc),var(--acc3));color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.l-btn:hover{transform:translateY(-1px)}
+.l-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.l-not{font-size:10px;color:var(--txt3);text-align:center;margin-top:10px}
+#uygulama{display:none;flex-direction:column;height:100%;position:relative;z-index:1}
+#uygulama.acik{display:flex}
+.ustcubuk{height:52px;flex-shrink:0;background:rgba(255,255,255,.8);backdrop-filter:blur(30px) saturate(2);border-bottom:1px solid var(--brd);box-shadow:0 2px 14px var(--sh2);display:flex;align-items:center;padding:0 18px;gap:12px;z-index:100}
+.logo{font-size:17px;font-weight:800;letter-spacing:.06em;display:flex;align-items:center;gap:9px}
+.logo-hex{width:30px;height:30px;background:linear-gradient(135deg,var(--acc),var(--acc3));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:12px}
+.logo span{color:var(--acc)}
+.ayrac{width:1px;height:22px;background:var(--brd2)}
+.kucuk-yazi{font-size:10px;color:var(--txt2)}
+.durum-nokta{width:7px;height:7px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px rgba(5,150,105,.6);animation:yanip-sonme 2s infinite}
+@keyframes yanip-sonme{0%,100%{opacity:1}50%{opacity:.3}}
+.sag-bolum{margin-left:auto;display:flex;align-items:center;gap:10px}
+.kullanici-chip{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border-radius:20px;background:rgba(255,255,255,.72);border:1px solid var(--brd2);cursor:pointer}
+.kullanici-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700}
+.kullanici-ad{font-size:11px;font-weight:600;color:var(--txt)}
+.rol-etiketi{font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700}
+.rol-admin{background:rgba(124,58,237,.12);color:var(--acc3);border:1px solid rgba(124,58,237,.25)}
+.rol-sre{background:rgba(37,99,235,.12);color:var(--acc);border:1px solid rgba(37,99,235,.25)}
+.rol-noc{background:rgba(8,145,178,.12);color:var(--tea);border:1px solid rgba(8,145,178,.25)}
+.rol-izleyici{background:rgba(100,116,139,.1);color:var(--txt2);border:1px solid rgba(100,116,139,.2)}
+.cikis-btn{padding:5px 12px;border-radius:7px;border:1px solid var(--brd2);background:rgba(255,255,255,.7);color:var(--txt2);font-size:10px;cursor:pointer}
+.cikis-btn:hover{border-color:var(--red);color:var(--red)}
+.rol-bant{padding:5px 18px;font-size:10px;font-weight:600;text-align:center;flex-shrink:0}
+.rol-bant-admin{background:rgba(124,58,237,.08);color:var(--acc3);border-bottom:1px solid rgba(124,58,237,.15)}
+.rol-bant-sre{background:rgba(37,99,235,.07);color:var(--acc);border-bottom:1px solid rgba(37,99,235,.15)}
+.rol-bant-noc{background:rgba(8,145,178,.07);color:var(--tea);border-bottom:1px solid rgba(8,145,178,.15)}
+.rol-bant-izleyici{background:rgba(100,116,139,.06);color:var(--txt2);border-bottom:1px solid rgba(100,116,139,.12)}
+.duzen{flex:1;display:flex;overflow:hidden}
+.kenarlik{width:228px;flex-shrink:0;background:rgba(255,255,255,.58);backdrop-filter:blur(24px) saturate(1.8);border-right:1px solid var(--brd);display:flex;flex-direction:column;padding:12px 0;overflow-y:auto}
+.menu-bolum{padding:0 10px;margin-bottom:4px}
+.menu-baslik{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);padding:8px 10px 4px;font-weight:600}
+.menu-ogesi{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:9px;cursor:pointer;font-size:12px;color:var(--txt2);transition:all .15s;margin-bottom:2px;font-weight:600;position:relative;user-select:none}
+.menu-ogesi:hover{background:rgba(37,99,235,.06);color:var(--txt)}
+.menu-ogesi.aktif{background:rgba(37,99,235,.1);color:var(--acc);border:1px solid rgba(37,99,235,.2)}
+.menu-ogesi.aktif::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--acc);border-radius:0 2px 2px 0}
+.menu-ikon{font-size:14px;width:20px;text-align:center}
+.sayac-etiketi{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px}
+.sayac-kirmizi{background:rgba(220,38,38,.12);color:var(--red);border:1px solid rgba(220,38,38,.25)}
+.sayac-sari{background:rgba(202,138,4,.1);color:var(--yel);border:1px solid rgba(202,138,4,.2)}
+.menu-ogesi.kilitli{opacity:.32;cursor:not-allowed;pointer-events:none}
+.faz-etiketi{font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(180,200,240,.3);color:var(--txt3);margin-left:auto}
+.kenarlik-alt{margin-top:auto;padding:10px 12px;border-top:1px solid rgba(180,200,240,.22)}
+.kaynak-chip{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;font-size:10px;color:var(--txt2);margin-bottom:3px;border:1px solid rgba(180,200,240,.28);background:rgba(255,255,255,.4);font-family:var(--mono)}
+.kaynak-nokta{width:6px;height:6px;border-radius:50%}
+.ana-alan{flex:1;overflow-y:auto;padding:20px;position:relative;z-index:1}
+.sayfa{display:none}
+.sayfa.aktif{display:block;animation:goster .25s ease}
+@keyframes goster{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sayfa-ust{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.sayfa-baslik{font-size:22px;font-weight:800;margin-bottom:4px}
+.sayfa-aciklama{font-size:11px;color:var(--txt3)}
+.sayfa-aksiyonlar{display:flex;gap:8px;align-items:center}
+.kart{background:var(--glass);backdrop-filter:blur(20px) saturate(1.6);border:1px solid var(--brd);border-radius:14px;padding:18px;box-shadow:0 4px 20px var(--sh2);transition:box-shadow .2s}
+.kart:hover{box-shadow:0 6px 28px var(--sh)}
+.kart-baslik{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-weight:700;margin-bottom:12px}
+.izgara{display:grid;gap:14px;margin-bottom:18px}
+.izgara-4{grid-template-columns:repeat(4,1fr)}
+.izgara-3{grid-template-columns:repeat(3,1fr)}
+.ozet-kart{background:var(--glass);backdrop-filter:blur(20px) saturate(1.6);border:1px solid var(--brd);border-radius:14px;padding:16px 18px;box-shadow:0 4px 20px var(--sh2)}
+.ozet-deger{font-size:28px;font-weight:700;font-family:var(--mono);line-height:1;margin-bottom:3px}
+.ozet-etiket{font-size:9px;color:var(--txt2);letter-spacing:.1em;text-transform:uppercase}
+.iki-kolon{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.uc-kolon{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.btn{padding:7px 14px;border-radius:7px;border:1px solid var(--brd2);background:rgba(255,255,255,.72);color:var(--txt2);font-size:11px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.mavi{background:rgba(37,99,235,.1);border-color:rgba(37,99,235,.38);color:var(--acc);font-weight:600}
+.btn.yesil{background:rgba(5,150,105,.1);border-color:rgba(5,150,105,.3);color:var(--grn);font-weight:600}
+.btn.kirmizi{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.28);color:var(--red)}
+.etiket{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;display:inline-block}
+.et-kirmizi{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.et-turuncu{background:rgba(234,88,12,.1);color:var(--ora);border:1px solid rgba(234,88,12,.2)}
+.et-sari{background:rgba(202,138,4,.1);color:var(--yel);border:1px solid rgba(202,138,4,.2)}
+.et-yesil{background:rgba(5,150,105,.1);color:var(--grn);border:1px solid rgba(5,150,105,.2)}
+.et-mavi{background:rgba(37,99,235,.1);color:var(--acc);border:1px solid rgba(37,99,235,.2)}
+.et-mor{background:rgba(124,58,237,.1);color:var(--acc3);border:1px solid rgba(124,58,237,.2)}
+.et-gri{background:rgba(100,116,139,.08);color:var(--txt2);border:1px solid rgba(100,116,139,.18)}
+.anomali-karti{display:flex;align-items:flex-start;gap:11px;padding:11px;border-radius:10px;border:1px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:7px}
+.anomali-karti:hover{background:rgba(37,99,235,.03);border-color:rgba(180,200,240,.3)}
+.anomali-karti.kritik{border-left:3px solid var(--red)}
+.anomali-karti.yuksek{border-left:3px solid var(--ora)}
+.anomali-karti.uyari{border-left:3px solid var(--yel)}
+.siddet-etiketi{font-size:8px;font-weight:700;padding:3px 7px;border-radius:4px;text-transform:uppercase;white-space:nowrap;margin-top:1px}
+.sid-kritik{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.25)}
+.sid-yuksek{background:rgba(234,88,12,.1);color:var(--ora);border:1px solid rgba(234,88,12,.25)}
+.sid-uyari{background:rgba(202,138,4,.08);color:var(--yel);border:1px solid rgba(202,138,4,.2)}
+.anomali-govde{flex:1;min-width:0}
+.anomali-ad{font-size:12px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.anomali-ozet{font-size:10px;color:var(--txt2);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
+.anomali-meta{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.tablo{width:100%;border-collapse:collapse;font-size:10px}
+.tablo thead th{position:sticky;top:0;background:rgba(255,255,255,.9);padding:7px 10px;text-align:left;font-size:9px;color:var(--txt2);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid rgba(180,200,240,.35);font-weight:600;white-space:nowrap}
+.tablo tbody tr{border-bottom:1px solid rgba(180,200,240,.12);cursor:pointer;transition:background .1s}
+.tablo tbody tr:hover{background:rgba(37,99,235,.03)}
+.tablo td{padding:5px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;font-family:var(--mono);font-size:10px}
+.yukleniyor{text-align:center;padding:40px;color:var(--txt3);font-size:12px}
+.dongu{width:24px;height:24px;border:3px solid rgba(37,99,235,.2);border-top-color:var(--acc);border-radius:50%;animation:don .8s linear infinite;margin:0 auto 12px}
+@keyframes don{to{transform:rotate(360deg)}}
+.overlay{display:none;position:fixed;inset:0;background:rgba(200,215,240,.45);backdrop-filter:blur(16px) saturate(1.5);z-index:5000;align-items:center;justify-content:center}
+.overlay.acik{display:flex}
+.modal{background:rgba(255,255,255,.9);backdrop-filter:blur(40px) saturate(2.5);border:1px solid var(--brd);border-radius:16px;width:580px;max-height:82vh;overflow-y:auto;box-shadow:0 20px 60px rgba(90,120,200,.2);animation:modal-ac .22s cubic-bezier(.34,1.56,.64,1)}
+@keyframes modal-ac{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-ust{padding:18px 22px 14px;border-bottom:1px solid rgba(180,200,240,.3);display:flex;align-items:flex-start;justify-content:space-between}
+.modal-govde{padding:16px 22px 22px}
+.modal-kapat{background:rgba(180,200,240,.2);border:1px solid rgba(180,200,240,.4);color:var(--txt2);font-size:14px;cursor:pointer;padding:4px 9px;border-radius:6px;line-height:1}
+.modal-kapat:hover{background:rgba(220,38,38,.1);color:var(--red)}
+.detay-satir{display:flex;gap:8px;margin-bottom:8px}
+.detay-anahtar{font-size:10px;color:var(--txt2);min-width:150px;padding-top:2px}
+.detay-deger{font-size:11px;color:var(--txt);flex:1;line-height:1.6;font-family:var(--mono)}
+.ayrac-cizgi{height:1px;background:rgba(180,200,240,.3);margin:12px 0}
+.bildirim-alani{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.bildirim{padding:11px 16px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(255,255,255,.95);backdrop-filter:blur(20px);border:1px solid var(--brd);box-shadow:0 8px 24px var(--sh);animation:bil-gir .3s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:8px;max-width:340px;pointer-events:all}
+@keyframes bil-gir{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.bil-basarili{border-color:rgba(5,150,105,.3);background:rgba(240,255,248,.97)}
+.bil-hata{border-color:rgba(220,38,38,.25);background:rgba(255,242,242,.97)}
+.bil-bilgi{border-color:rgba(37,99,235,.25);background:rgba(240,245,255,.97)}
+.bil-uyari{border-color:rgba(202,138,4,.25);background:rgba(255,252,235,.97)}
+.toggle{width:34px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.acik{background:var(--grn)}.toggle.kapali{background:rgba(180,200,240,.5)}
+.toggle::after{content:'';position:absolute;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.acik::after{left:17px}.toggle.kapali::after{left:2px}
+.form-girdi{width:100%;padding:7px 10px;border-radius:7px;border:1px solid rgba(180,200,240,.5);background:rgba(255,255,255,.75);font-size:12px;color:var(--txt);outline:none;font-family:var(--mono)}
+.form-girdi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.cubuk-satir{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.cubuk-etiket{font-size:10px;color:var(--txt2);min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
+.cubuk-iz{flex:1;height:8px;background:rgba(180,200,240,.2);border-radius:4px;overflow:hidden}
+.cubuk-dolgu{height:100%;border-radius:4px;transition:width .6s}
+.cubuk-deger{font-size:10px;color:var(--txt2);min-width:28px;text-align:right;font-weight:600}
+.trend-alani{display:flex;align-items:flex-end;gap:3px;height:60px;padding-top:4px}
+.trend-cubuk{flex:1;border-radius:3px 3px 0 0;min-width:4px;transition:height .4s;cursor:pointer;position:relative}
+.trend-cubuk:hover::after{content:attr(data-ipucu);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--txt);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;white-space:nowrap;margin-bottom:3px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(180,200,240,.5);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="bg"><div class="bb b1"></div><div class="bb b2"></div><div class="bb b3"></div><div class="bb b4"></div><div class="bb b5"></div></div>
+
+<div id="giris-ekrani">
+<div class="giris-kart">
+  <div class="l-hex">&#11041;</div>
+  <div class="l-baslik">Lumen AIOps</div>
+  <div class="l-alt">Bankacilik Operasyon Merkezi</div>
+  <label class="l-etiket">Kullan&#305;c&#305; Ad&#305;</label>
+  <input class="l-girdi" id="giris-kullanici" placeholder="kullan&#305;c&#305; ad&#305;n&#305;z&#305;" autocomplete="username"/>
+  <label class="l-etiket">&#350;ifre</label>
+  <input class="l-girdi" id="giris-sifre" type="password" placeholder="&#351;ifreniz" autocomplete="current-password"/>
+  <div class="l-hata" id="giris-hata">Kullan&#305;c&#305; ad&#305; veya &#351;ifre hatal&#305;</div>
+  <button class="l-btn" id="giris-btn" onclick="girisYap()">Giri&#351; Yap</button>
+  <div class="l-not">LDAP / Active Directory + Yerel kimlik do&#287;rulama</div>
+</div>
+</div>
+
+<div id="uygulama">
+<div class="ustcubuk">
+  <div class="logo"><div class="logo-hex">&#11041;</div>Lumen <span>AIOps</span></div>
+  <div class="ayrac"></div>
+  <div class="durum-nokta" id="api-durum"></div>
+  <div class="kucuk-yazi">Bankacilik Operasyon Merkezi</div>
+  <div class="ayrac"></div>
+  <div class="kucuk-yazi" id="aktif-sayfa">Kontrol Paneli</div>
+  <div class="sag-bolum">
+    <div class="kucuk-yazi" id="saat" style="font-family:var(--mono)">--:--:--</div>
+    <div class="kullanici-chip" onclick="sifreDegistirModalAc()" title="&#350;ifre de&#287;i&#351;tir">
+      <div class="kullanici-avatar" id="kullanici-avatar" style="background:linear-gradient(135deg,var(--acc),var(--acc3))">?</div>
+      <div class="kullanici-ad" id="kullanici-ad">-</div>
+      <div class="rol-etiketi rol-admin" id="kullanici-rol">-</div>
+    </div>
+    <button class="cikis-btn" onclick="cikisYap()">&#199;&#305;k&#305;&#351;</button>
+  </div>
+</div>
+<div class="rol-bant rol-bant-admin" id="rol-banti"></div>
+<div class="duzen">
+<div class="kenarlik" id="kenarlik"></div>
+<div class="ana-alan" id="ana-alan"></div>
+</div>
+</div>
+
+<!-- Anomali Detay Modal&#305; -->
+<div class="overlay" id="anomali-modal" onclick="if(event.target===this)modalKapat()">
+  <div class="modal">
+    <div class="modal-ust">
+      <div><div id="modal-siddet" style="margin-bottom:6px"></div><div id="modal-baslik" style="font-size:17px;font-weight:800;color:var(--txt)"></div></div>
+      <button class="modal-kapat" onclick="modalKapat()">&#10005;</button>
+    </div>
+    <div class="modal-govde" id="modal-icerik"></div>
+  </div>
+</div>
+
+<!-- &#350;ifre De&#287;i&#351;tir Modal&#305; -->
+<div class="overlay" id="sifre-modal" onclick="if(event.target===this)sifreDegistirModalKapat()">
+  <div class="modal" style="width:420px">
+    <div class="modal-ust">
+      <div><div style="font-size:17px;font-weight:800;color:var(--txt)">&#350;ifre De&#287;i&#351;tir</div></div>
+      <button class="modal-kapat" onclick="sifreDegistirModalKapat()">&#10005;</button>
+    </div>
+    <div class="modal-govde">
+      <label class="l-etiket">Mevcut &#350;ifre</label>
+      <input class="l-girdi" id="mevcut-sifre" type="password" placeholder="mevcut &#351;ifrenizi girin"/>
+      <label class="l-etiket">Yeni &#350;ifre</label>
+      <input class="l-girdi" id="yeni-sifre" type="password" placeholder="en az 8 karakter"/>
+      <label class="l-etiket">Yeni &#350;ifre (Tekrar)</label>
+      <input class="l-girdi" id="yeni-sifre-tekrar" type="password" placeholder="yeni &#351;ifreyi tekrar girin"/>
+      <div id="sifre-hata" style="font-size:11px;color:var(--red);margin-bottom:12px;display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn yesil" onclick="sifreDegistir()">&#350;ifreyi G&#252;ncelle</button>
+        <button class="btn" onclick="sifreDegistirModalKapat()">Vazge&#231;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Yanl&#305;&#351; Tespit Modal&#305; -->
+<div class="overlay" id="fp-modal" onclick="if(event.target===this)fpModalKapat()">
+  <div class="modal" style="width:440px">
+    <div class="modal-ust">
+      <div><div style="font-size:17px;font-weight:800;color:var(--red)">Yanl&#305;&#351; Tespit Bildir</div></div>
+      <button class="modal-kapat" onclick="fpModalKapat()">&#10005;</button>
+    </div>
+    <div class="modal-govde">
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:14px">Bu anomali yanl&#305;&#351; tespit olarak i&#351;aretlenecek ve e&#287;itim verisinden &#231;&#305;kar&#305;lacak.</div>
+      <label class="l-etiket">A&#231;&#305;klama (Opsiyonel)</label>
+      <textarea id="fp-aciklama" style="width:100%;padding:10px;border-radius:9px;border:1px solid rgba(180,200,240,.5);background:rgba(255,255,255,.75);font-size:12px;color:var(--txt);outline:none;resize:vertical;min-height:80px;font-family:var(--font)" placeholder="&#214;rnek: Bu servis i&#231;in normal de&#287;er, e&#351;ik &#231;ok d&#252;&#351;&#252;k ayarlanm&#305;&#351;..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn kirmizi" onclick="fpGonder()">Yanl&#305;&#351; Tespit Onayla</button>
+        <button class="btn" onclick="fpModalKapat()">Vazge&#231;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bildirim-alani" id="bildirim-alani"></div>
+
+<script>
+var API = window.location.origin;
+var TOKEN = localStorage.getItem('lumen_token') || '';
+var KULLANICI = {};
+var OTOMATIK_YENILE = null;
+var fpAnomaliId = null;
+
+var ROL_AYARLARI = {
+  'Admin':       {css:'rol-admin',    bantCss:'rol-bant-admin',    bantYazi:'Y\u00f6netici \u2014 Tam Eri\u015fim',                      renk:'#7c3aed'},
+  'SRE Lead':    {css:'rol-sre',      bantCss:'rol-bant-sre',      bantYazi:'SRE Lider \u2014 Anomali ve Ajan Y\u00f6netimi',            renk:'#2563eb'},
+  'NOC Analyst': {css:'rol-noc',      bantCss:'rol-bant-noc',      bantYazi:'NOC Analisti \u2014 Log \u0130zleme',                       renk:'#0891b2'},
+  'Viewer':      {css:'rol-izleyici', bantCss:'rol-bant-izleyici', bantYazi:'\u0130zleyici \u2014 Sadece G\u00f6r\u00fcnt\u00fcleme',    renk:'#94a3b8'}
+};
+
+var SAYFA_ADLARI = {
+  'kontrol-paneli':    'Kontrol Paneli',
+  'anomaliler':        'Anomaliler',
+  'hata-kodlari':      'Hata Kodlar\u0131',
+  'tespit-donguleri':  'Tespit D\u00f6ng\u00fcleri',
+  'sre-ajan':          'SRE Ajan\u0131',
+  'anomali-ayarlari':  'Anomali Ayarlar\u0131',
+  'kanal-tanimlari':   'Kanal Tan\u0131mlar\u0131',
+  'denetim-kayitlari': 'Denetim Kay\u0131tlar\u0131'
+};
+
+async function apiFetch(yol, ayarlar) {
+  ayarlar = ayarlar || {};
+  var basliklar = {'Content-Type': 'application/json'};
+  if (TOKEN) basliklar['Authorization'] = 'Bearer ' + TOKEN;
+  if (ayarlar.headers) Object.assign(basliklar, ayarlar.headers);
+  var yanit = await fetch(API + yol, Object.assign({}, ayarlar, {headers: basliklar}));
+  if (yanit.status === 401) { cikisYap(); return null; }
+  if (!yanit.ok) throw new Error('API Hatas\u0131 ' + yanit.status);
+  return yanit.json();
+}
+
+async function girisYap() {
+  var kullanici = document.getElementById('giris-kullanici').value.trim();
+  var sifre = document.getElementById('giris-sifre').value;
+  if (!kullanici || !sifre) { girisHataGoster('Kullan\u0131c\u0131 ad\u0131 ve \u015fifre zorunludur'); return; }
+  var btn = document.getElementById('giris-btn');
+  btn.disabled = true; btn.textContent = 'Giri\u015f yap\u0131l\u0131yor...';
+  try {
+    var form = new URLSearchParams();
+    form.append('username', kullanici); form.append('password', sifre);
+    var yanit = await fetch(API + '/auth/login', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: form.toString()});
+    if (!yanit.ok) { girisHataGoster('Kullan\u0131c\u0131 ad\u0131 veya \u015fifre yanl\u0131\u015f'); btn.disabled=false; btn.textContent='Giri\u015f Yap'; return; }
+    var veri = await yanit.json();
+    TOKEN = veri.access_token;
+    localStorage.setItem('lumen_token', TOKEN);
+    KULLANICI = {kullaniciAdi: veri.username, roller: veri.roles};
+    var ben = await apiFetch('/auth/me');
+    if (ben) KULLANICI.izinler = ben.permissions;
+    uygulamaBaslat();
+  } catch(e) { girisHataGoster('Sunucuya ba\u011flan\u0131lam\u0131yor'); btn.disabled=false; btn.textContent='Giri\u015f Yap'; }
+}
+
+function girisHataGoster(mesaj) {
+  var el = document.getElementById('giris-hata');
+  el.textContent = mesaj; el.style.display = 'block';
+}
+
+function cikisYap() {
+  TOKEN=''; KULLANICI={};
+  localStorage.removeItem('lumen_token');
+  if (OTOMATIK_YENILE) clearInterval(OTOMATIK_YENILE);
+  document.getElementById('uygulama').classList.remove('acik');
+  document.getElementById('giris-ekrani').style.display='flex';
+  document.getElementById('giris-hata').style.display='none';
+  document.getElementById('giris-btn').disabled=false;
+  document.getElementById('giris-btn').textContent='Giri\u015f Yap';
+}
+
+function uygulamaBaslat() {
+  document.getElementById('giris-ekrani').style.display='none';
+  document.getElementById('uygulama').classList.add('acik');
+  var rol = (KULLANICI.roller && KULLANICI.roller[0]) || 'Viewer';
+  var ra = ROL_AYARLARI[rol] || ROL_AYARLARI['Viewer'];
+  var av = document.getElementById('kullanici-avatar');
+  av.textContent = KULLANICI.kullaniciAdi ? KULLANICI.kullaniciAdi.slice(0,2).toUpperCase() : '?';
+  av.style.background = 'linear-gradient(135deg,' + ra.renk + ',' + ra.renk + 'aa)';
+  document.getElementById('kullanici-ad').textContent = KULLANICI.kullaniciAdi;
+  document.getElementById('kullanici-rol').textContent = rol;
+  document.getElementById('kullanici-rol').className = 'rol-etiketi ' + ra.css;
+  document.getElementById('rol-banti').textContent = ra.bantYazi;
+  document.getElementById('rol-banti').className = 'rol-bant ' + ra.bantCss;
+  kenarlikOlustur();
+  sayfalarOlustur();
+  sayfaGoster('kontrol-paneli');
+  OTOMATIK_YENILE = setInterval(function() {
+    var ap = document.querySelector('.sayfa.aktif');
+    if (ap && ap.id==='sayfa-kontrol-paneli') kontrolPaneliYukle();
+    if (ap && ap.id==='sayfa-anomaliler') anomalierYukle('tumu', null);
+  }, 60000);
+  setInterval(function() {
+    var el=document.getElementById('saat');
+    if(el) el.textContent=new Date().toLocaleTimeString('tr-TR',{timeZone:'Europe/Istanbul'});
+  }, 1000);
+  apiDurumKontrol(); setInterval(apiDurumKontrol, 30000);
+}
+
+async function apiDurumKontrol() {
+  var nokta = document.getElementById('api-durum');
+  try { var d=await apiFetch('/health'); if(d){nokta.style.background='var(--grn)';nokta.style.boxShadow='0 0 8px rgba(5,150,105,.6)';} }
+  catch(e) { nokta.style.background='var(--red)'; nokta.style.boxShadow='0 0 8px rgba(220,38,38,.6)'; }
+}
+
+window.addEventListener('load', async function() {
+  if (TOKEN) {
+    try { var ben=await apiFetch('/auth/me'); if(ben){KULLANICI={kullaniciAdi:ben.username, roller:ben.roles, izinler:ben.permissions}; uygulamaBaslat(); return;} } catch(e) {}
+    TOKEN=''; localStorage.removeItem('lumen_token');
+  }
+});
+
+function izniVarMi(izin) { return KULLANICI.izinler && KULLANICI.izinler.indexOf(izin) >= 0; }
+function rolVarMi(rol) { return KULLANICI.roller && KULLANICI.roller.indexOf(rol) >= 0; }
+function yoneticiMi() { return rolVarMi('Admin'); }
+function sreMi() { return rolVarMi('SRE Lead') || yoneticiMi(); }
+
+function kenarlikOlustur() {
+  var html = '';
+  html += '<div class="menu-bolum"><div class="menu-baslik">Genel</div>';
+  html += '<div class="menu-ogesi" id="menu-kontrol-paneli" onclick="sayfaGoster(\'kontrol-paneli\',this)"><span class="menu-ikon">&#9672;</span>Kontrol Paneli</div></div>';
+  html += '<div class="menu-bolum"><div class="menu-baslik">Faz 1 \u2014 Log Anomali Tespiti</div>';
+  html += '<div class="menu-ogesi" id="menu-anomaliler" onclick="sayfaGoster(\'anomaliler\',this)"><span class="menu-ikon">&#9889;</span>Anomaliler<span class="sayac-etiketi sayac-kirmizi" id="anomali-sayaci">-</span></div>';
+  if (!rolVarMi('Viewer')) {
+    html += '<div class="menu-ogesi" id="menu-hata-kodlari" onclick="sayfaGoster(\'hata-kodlari\',this)"><span class="menu-ikon">&#128290;</span>Hata Kodlar\u0131</div>';
+    html += '<div class="menu-ogesi" id="menu-tespit-donguleri" onclick="sayfaGoster(\'tespit-donguleri\',this)"><span class="menu-ikon">&#128203;</span>Tespit D\u00f6ng\u00fcleri</div>';
+  }
+  html += '</div>';
+  if (!rolVarMi('Viewer')) {
+    html += '<div class="menu-bolum"><div class="menu-baslik">SRE Ajan\u0131</div>';
+    html += '<div class="menu-ogesi" id="menu-sre-ajan" onclick="sayfaGoster(\'sre-ajan\',this)"><span class="menu-ikon">&#129302;</span>Aksiyon Merkezi' + (sreMi() ? '<span class="sayac-etiketi sayac-sari" id="aksiyon-sayaci">-</span>' : '<span class="faz-etiketi">g\u00f6r\u00fcnt\u00fcle</span>') + '</div>';
+    html += '</div>';
+  }
+  html += '<div class="menu-bolum"><div class="menu-baslik">Yak\u0131n Gelecek</div>';
+  html += '<div class="menu-ogesi kilitli"><span class="menu-ikon">&#128200;</span>Metrik Anomali Tespiti<span class="faz-etiketi">Faz 2</span></div>';
+  html += '<div class="menu-ogesi kilitli"><span class="menu-ikon">&#11041;</span>Servis Topolojisi<span class="faz-etiketi">Faz 3</span></div>';
+  html += '</div>';
+  if (yoneticiMi()) {
+    html += '<div class="menu-bolum"><div class="menu-baslik">Y\u00f6netim</div>';
+    html += '<div class="menu-ogesi" id="menu-anomali-ayarlari" onclick="sayfaGoster(\'anomali-ayarlari\',this)"><span class="menu-ikon">&#9881;</span>Anomali Ayarlar\u0131</div>';
+    html += '<div class="menu-ogesi" id="menu-kanal-tanimlari" onclick="sayfaGoster(\'kanal-tanimlari\',this)"><span class="menu-ikon">&#128279;</span>Kanal Tan\u0131mlar\u0131</div>';
+    html += '<div class="menu-ogesi" id="menu-denetim-kayitlari" onclick="sayfaGoster(\'denetim-kayitlari\',this)"><span class="menu-ikon">&#128196;</span>Denetim Kay\u0131tlar\u0131</div>';
+    html += '</div>';
+  }
+  html += '<div class="kenarlik-alt">';
+  html += '<div style="font-size:9px;color:var(--txt3);margin-bottom:6px;font-weight:600;text-transform:uppercase">Veri Kaynaklar\u0131</div>';
+  html += '<div class="kaynak-chip"><div class="kaynak-nokta" style="background:var(--grn);box-shadow:0 0 5px var(--grn)"></div>Logstash HTTP Push</div>';
+  html += '<div class="kaynak-chip"><div class="kaynak-nokta" style="background:var(--grn);box-shadow:0 0 5px var(--grn)"></div>Yerel Dil Modeli</div>';
+  html += '<div class="kaynak-chip"><div class="kaynak-nokta" style="background:var(--grn);box-shadow:0 0 5px var(--grn)"></div>Zabbix API</div>';
+  html += '</div>';
+  document.getElementById('kenarlik').innerHTML = html;
+}
+
+function sayfalarOlustur() {
+  document.getElementById('ana-alan').innerHTML =
+    '<div class="sayfa" id="sayfa-kontrol-paneli"></div>' +
+    '<div class="sayfa" id="sayfa-anomaliler"></div>' +
+    '<div class="sayfa" id="sayfa-hata-kodlari"></div>' +
+    '<div class="sayfa" id="sayfa-tespit-donguleri"></div>' +
+    '<div class="sayfa" id="sayfa-sre-ajan"></div>' +
+    '<div class="sayfa" id="sayfa-anomali-ayarlari"></div>' +
+    '<div class="sayfa" id="sayfa-kanal-tanimlari"></div>' +
+    '<div class="sayfa" id="sayfa-denetim-kayitlari"></div>';
+}
+
+function sayfaGoster(ad, menuOgesi) {
+  document.querySelectorAll('.sayfa').forEach(function(s) { s.classList.remove('aktif'); });
+  document.querySelectorAll('.menu-ogesi').forEach(function(m) { m.classList.remove('aktif'); });
+  var sayfa = document.getElementById('sayfa-' + ad);
+  if (sayfa) sayfa.classList.add('aktif');
+  if (menuOgesi) menuOgesi.classList.add('aktif');
+  else { var menu = document.getElementById('menu-' + ad); if(menu) menu.classList.add('aktif'); }
+  document.getElementById('aktif-sayfa').textContent = SAYFA_ADLARI[ad] || ad;
+  var yukleme = {
+    'kontrol-paneli': kontrolPaneliYukle,
+    'anomaliler': function(){anomalierYukle('tumu', null);},
+    'hata-kodlari': hataKodlariYukle,
+    'tespit-donguleri': tespitDonguleriYukle,
+    'sre-ajan': sreAjaniYukle,
+    'anomali-ayarlari': anomaliAyarlariYukle,
+    'kanal-tanimlari': kanalTanimlariYukle,
+    'denetim-kayitlari': denetimKayitlariYukle
+  };
+  if (yukleme[ad]) yukleme[ad]();
+}
+
+async function kontrolPaneliYukle() {
+  var el = document.getElementById('sayfa-kontrol-paneli');
+  el.innerHTML = yukleniyorHtml();
+  try {
+    var ist = await apiFetch('/api/v1/dashboard/stats');
+    var anomaliler = await apiFetch('/api/v1/anomalies?limit=5');
+    var sayac = document.getElementById('anomali-sayaci');
+    if (sayac && anomaliler) sayac.textContent = anomaliler.length;
+
+    var servisler = ist.by_service || [];
+    var kanallar = ist.by_channel || [];
+    var trend = ist.trend_24h || [];
+    var maxS = servisler.length ? Math.max.apply(null, servisler.map(function(s){return s.count;})) : 1;
+    var maxK = kanallar.length ? Math.max.apply(null, kanallar.map(function(c){return c.count;})) : 1;
+    var maxT = trend.length ? Math.max.apply(null, trend.map(function(t){return t.count;})) : 1;
+
+    el.innerHTML =
+      '<div class="sayfa-ust"><div>' +
+      '<div class="sayfa-baslik">Kontrol Paneli</div>' +
+      '<div class="sayfa-aciklama">Son 24 saat \u2014 Her 60 saniyede bir otomatik yenilenir</div>' +
+      '</div></div>' +
+      '<div class="izgara izgara-4" style="margin-bottom:18px">' +
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--red)">' + ((ist&&ist.active_anomalies)||0) + '</div><div class="ozet-etiket">Aktif Anomali</div></div>' +
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--acc)">' + ((ist&&ist.total_anomalies)||0) + '</div><div class="ozet-etiket">Toplam Anomali</div></div>' +
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--ora);font-size:22px">' + ((ist&&ist.false_positive_count)||0) + '</div><div class="ozet-etiket">Yanl\u0131\u015f Tespit</div></div>' +
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--grn);font-size:18px">' + ((ist&&ist.last_run&&ist.last_run.status)||'-') + '</div><div class="ozet-etiket">Son Tespit D\u00f6ng\u00fcs\u00fc</div>' +
+      '<div style="font-size:9px;color:var(--txt3)">' + ((ist&&ist.last_run&&ist.last_run.finished_at)?new Date(ist.last_run.finished_at).toLocaleTimeString('tr-TR',{timeZone:'Europe/Istanbul'}):'-') + '</div>' +
+      '</div></div>' +
+
+      '<div class="kart" style="margin-bottom:16px">' +
+      '<div class="kart-baslik">Son 24 Saat Anomali Trendi</div>' +
+      (trend.length ?
+        '<div class="trend-alani">' +
+        trend.map(function(t) {
+          var y = maxT>0 ? Math.max(4,Math.round(t.count/maxT*56)) : 4;
+          var r = t.count>=5?'var(--red)':t.count>=2?'var(--ora)':'var(--acc)';
+          return '<div class="trend-cubuk" style="height:'+y+'px;background:'+r+';opacity:.8" data-ipucu="'+t.hour+': '+t.count+' anomali" title="'+t.hour+': '+t.count+'"></div>';
+        }).join('') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:4px">' +
+        '<span style="font-size:9px;color:var(--txt3)">'+(trend[0]?trend[0].hour:'')+'</span>' +
+        '<span style="font-size:9px;color:var(--txt3)">'+(trend[trend.length-1]?trend[trend.length-1].hour:'')+'</span>' +
+        '</div>' : bosEkranHtml('Son 24 saatte anomali bulunmuyor')) + '</div>' +
+
+      '<div class="iki-kolon">' +
+      '<div class="kart"><div class="kart-baslik">Servis Baz\u0131nda Da\u011f\u0131l\u0131m (Son 24 Saat)</div>' +
+      (servisler.length ? servisler.map(function(s) {
+        var g=maxS>0?Math.round(s.count/maxS*100):0;
+        var r=s.disaster>0?'var(--red)':s.high>0?'var(--ora)':'var(--acc)';
+        return '<div class="cubuk-satir"><div class="cubuk-etiket" title="'+s.service+'">'+s.service+'</div><div class="cubuk-iz"><div class="cubuk-dolgu" style="width:'+g+'%;background:'+r+'"></div></div><div class="cubuk-deger">'+s.count+'</div></div>';
+      }).join('') : bosEkranHtml('Veri bulunamad\u0131')) + '</div>' +
+      '<div class="kart"><div class="kart-baslik">Kanal Baz\u0131nda Da\u011f\u0131l\u0131m (Son 24 Saat)</div>' +
+      (kanallar.length ? kanallar.map(function(c) {
+        var g=maxK>0?Math.round(c.count/maxK*100):0;
+        return '<div class="cubuk-satir"><div class="cubuk-etiket">'+c.channel_name+'</div><div class="cubuk-iz"><div class="cubuk-dolgu" style="width:'+g+'%;background:var(--acc2)"></div></div><div class="cubuk-deger">'+c.count+'</div></div>';
+      }).join('') : bosEkranHtml('Veri bulunamad\u0131')) + '</div></div>' +
+
+      '<div class="kart"><div class="kart-baslik">Son Anomaliler</div>' +
+      (anomaliler&&anomaliler.length ? anomaliListesiHtml(anomaliler) : bosEkranHtml('Hen\u00fcz anomali kaydedilmemi\u015f')) + '</div>';
+
+  } catch(e) { el.innerHTML = hataHtml(e.message); }
+}
+
+async function anomalierYukle(siddet, kategori) {
+  var el = document.getElementById('sayfa-anomaliler');
+  el.innerHTML =
+    '<div class="sayfa-ust"><div>' +
+    '<div class="sayfa-baslik">Anomali Merkezi</div>' +
+    '<div class="sayfa-aciklama">Kural Motoru + Z-Skoru + \u0130zolasyon Orman\u0131</div>' +
+    '</div></div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' +
+    '<button class="btn '+(!siddet||siddet==="tumu"&&!kategori?'mavi':'')+'" onclick="anomalierYukle(\'tumu\',null)">T\u00fcm\u00fcn\u00fc G\u00f6ster</button>' +
+    '<button class="btn '+(siddet==="DISASTER"?'mavi':'')+'" onclick="anomalierYukle(\'DISASTER\',null)">Kritik</button>' +
+    '<button class="btn '+(siddet==="HIGH"?'mavi':'')+'" onclick="anomalierYukle(\'HIGH\',null)">Y\u00fcksek</button>' +
+    '<button class="btn '+(siddet==="WARNING"?'mavi':'')+'" onclick="anomalierYukle(\'WARNING\',null)">Uyar\u0131</button>' +
+    '<div style="width:1px;background:rgba(180,200,240,.4);margin:0 4px"></div>' +
+    '<button class="btn" style="border-color:var(--ora);color:'+(kategori==="SYS"?'var(--ora)':'var(--txt2)')+'" onclick="anomalierYukle(\'tumu\',\'SYS\')">Sistem Hatas\u0131</button>' +
+    '<button class="btn" style="border-color:var(--red);color:'+(kategori==="BIZ"?'var(--red)':'var(--txt2)')+'" onclick="anomalierYukle(\'tumu\',\'BIZ\')">\u0130\u015f Hatas\u0131</button>' +
+    '<button class="btn" style="border-color:var(--acc);color:'+(kategori==="PERFORMANCE"?'var(--acc)':'var(--txt2)')+'" onclick="anomalierYukle(\'tumu\',\'PERFORMANCE\')">Performans</button>' +
+    '</div>' +
+    '<div id="anomali-listesi">'+yukleniyorHtml()+'</div>';
+  try {
+    var url = '/api/v1/anomalies?limit=100';
+    if (siddet && siddet !== 'tumu') url += '&severity=' + siddet;
+    if (kategori) url += '&category=' + kategori;
+    var anomaliler = await apiFetch(url);
+    document.getElementById('anomali-listesi').innerHTML = anomaliler&&anomaliler.length ? anomaliListesiHtml(anomaliler) : bosEkranHtml('Se\u00e7ilen filtreye uygun anomali bulunamad\u0131');
+    var sayac = document.getElementById('anomali-sayaci');
+    if (sayac) sayac.textContent = (anomaliler&&anomaliler.length)||0;
+  } catch(e) { document.getElementById('anomali-listesi').innerHTML = hataHtml(e.message); }
+}
+
+function anomaliListesiHtml(liste) {
+  var sMap = {DISASTER:'kritik',HIGH:'yuksek',WARNING:'uyari'};
+  var sYazi = {DISASTER:'KR\u0130T\u0130K',HIGH:'Y\u00dcKSEK',WARNING:'UYARI'};
+  var sCss = {kritik:'sid-kritik',yuksek:'sid-yuksek',uyari:'sid-uyari'};
+  return liste.map(function(a) {
+    var s = sMap[a.severity] || 'uyari';
+    var kAdi = a.channel_name && a.channel_name !== a.channel_code ? a.channel_name : a.channel_code;
+    var kCss = a.result_category==='SYS'?'et-turuncu':a.result_category==='BIZ'?'et-kirmizi':'et-mavi';
+    var kYazi = a.result_category==='SYS'?'Sistem Hatas\u0131':a.result_category==='BIZ'?'\u0130\u015f Hatas\u0131':a.result_category==='PERFORMANCE'?'Performans':a.result_category||'-';
+    return '<div class="anomali-karti ' + s + '" onclick="anomaliDetayAc(' + a.id + ')">' +
+      '<div><div class="siddet-etiketi ' + sCss[s] + '">' + (sYazi[a.severity]||a.severity) + '</div></div>' +
+      '<div class="anomali-govde">' +
+      '<div class="anomali-ad">' + (a.service||'-') + ' [' + (kAdi||'-') + ']</div>' +
+      '<div class="anomali-ozet">' + (a.summary||'-') + '</div>' +
+      '<div class="anomali-meta">' +
+      '<span class="etiket et-mavi">' + (a.anomaly_type||'-') + '</span>' +
+      (a.result_category?'<span class="etiket '+kCss+'">'+kYazi+(a.result_code?' ('+a.result_code+')':'')+'</span>':'') +
+      '<span style="font-size:9px;color:var(--txt3)">' + (a.detected_at?new Date(a.detected_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'-') + '</span>' +
+      (a.zabbix_sent?'<span class="etiket et-yesil">Zabbix G\u00f6nderildi</span>':'<span class="etiket et-sari">Bekliyor</span>') +
+      (a.is_false_positive?'<span class="etiket et-kirmizi" style="margin-left:4px">Yanl\u0131\u015f Tespit</span>':
+        a.acknowledged?'<span class="etiket et-yesil" style="margin-left:4px">Onayland\u0131: '+(a.acknowledged_by||'')+'</span>':
+        '<button class="btn" style="padding:2px 8px;font-size:9px;margin-left:4px" onclick="event.stopPropagation();anomaliOnayla('+a.id+')">Onayla</button>') +
+      '</div></div></div>';
+  }).join('');
+}
+
+async function anomaliDetayAc(id) {
+  try {
+    var a = await apiFetch('/api/v1/anomalies/' + id);
+    if (!a) return;
+    var sCss2 = {DISASTER:'sid-kritik',HIGH:'sid-yuksek',WARNING:'sid-uyari'};
+    var sYazi2 = {DISASTER:'KR\u0130T\u0130K',HIGH:'Y\u00dcKSEK',WARNING:'UYARI'};
+    var kAdi = a.channel_name && a.channel_name !== a.channel_code ? a.channel_name+' ('+a.channel_code+')' : a.channel_code;
+    var kYazi = a.result_category==='SYS'?'Sistem Hatas\u0131':a.result_category==='BIZ'?'\u0130\u015f Hatas\u0131':a.result_category==='PERFORMANCE'?'Performans Anomalisi':a.result_category||'-';
+    document.getElementById('modal-siddet').innerHTML = '<span class="siddet-etiketi '+(sCss2[a.severity]||'sid-uyari')+'">'+(sYazi2[a.severity]||a.severity)+'</span>';
+    document.getElementById('modal-baslik').textContent = (a.service||'-') + ' [' + (a.channel_name||a.channel_code||'-') + ']';
+    document.getElementById('modal-icerik').innerHTML =
+      detaySatir('Tespit Zaman\u0131', a.detected_at?new Date(a.detected_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'-') +
+      detaySatir('Anomali T\u00fcr\u00fc', a.anomaly_type||'-') +
+      detaySatir('Servis', '<span style="color:var(--acc)">'+(a.service||'-')+'</span>') +
+      detaySatir('Kanal', kAdi||'-') +
+      detaySatir('Hata Kategorisi', kYazi) +
+      detaySatir('Anomali Skoru', '<span style="color:var(--red)">'+(a.score?a.score.toFixed(2):'-')+'</span>') +
+      detaySatir('Hata Oran\u0131', '%'+(((a.error_rate||0)*100).toFixed(1))) +
+      detaySatir('Ort. Yan\u0131t S\u00fcresi', (a.elapsed_mean?a.elapsed_mean.toFixed(0):'-')+' ms') +
+      detaySatir('\u0130\u015flem Say\u0131s\u0131', a.tx_count||0) +
+      detaySatir('Sonu\u00e7 Kodu', (a.result_code||'-')+(a.result_desc?' \u2014 '+a.result_desc:'')) +
+      detaySatir('De\u011ferlendirme',
+        a.is_false_positive?'Yanl\u0131\u015f Tespit \u2014 '+(a.false_positive_by||'')+(a.false_positive_reason?' \u2014 '+a.false_positive_reason:''):
+        a.acknowledged?'Onayland\u0131 \u2014 '+(a.acknowledged_by||'')+' \u2014 '+(a.acknowledged_at?new Date(a.acknowledged_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):''):
+        'Hen\u00fcz de\u011ferlendirilmedi') +
+      '<div class="ayrac-cizgi"></div>' +
+      '<div style="font-size:11px;color:var(--txt2);line-height:1.7;margin-bottom:10px">'+(a.summary||'-')+'</div>' +
+      (a.ai_analysis?'<div style="background:linear-gradient(135deg,rgba(124,58,237,.07),rgba(37,99,235,.05));border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:9px;color:var(--acc3);margin-bottom:7px;font-weight:700;text-transform:uppercase">Yapay Zeka K\u00f6k Neden Analizi</div><div style="font-size:11px;color:var(--txt);line-height:1.75">'+a.ai_analysis+'</div></div>':'') +
+      '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
+      (!a.is_false_positive&&!a.acknowledged&&izniVarMi('log.anomalies.ack')?'<button class="btn mavi" onclick="anomaliOnayla('+a.id+');modalKapat()">Onayla</button>':'') +
+      (!a.is_false_positive&&izniVarMi('log.anomalies.ack')?'<button class="btn kirmizi" onclick="fpModalAc('+a.id+')">Yanl\u0131\u015f Tespit Bildir</button>':'') +
+      (sreMi()?'<button class="btn yesil" onclick="modalKapat();bildirimGoster(\'Aksiyon ajana iletildi\',\'bilgi\')">Ajana G\u00f6nder</button>':'') +
+      '<button class="btn" onclick="modalKapat()">Kapat</button></div>';
+    document.getElementById('anomali-modal').classList.add('acik');
+  } catch(e) { bildirimGoster('Detay y\u00fcklenemedi: '+e.message,'hata'); }
+}
+
+function detaySatir(anahtar, deger) {
+  return '<div class="detay-satir"><div class="detay-anahtar">'+anahtar+':</div><div class="detay-deger">'+deger+'</div></div>';
+}
+
+async function anomaliOnayla(id) {
+  try {
+    await apiFetch('/api/v1/anomalies/'+id+'/acknowledge',{method:'POST'});
+    bildirimGoster('Anomali onayand\u0131','basarili');
+    var ap=document.querySelector('.sayfa.aktif');
+    if(ap&&ap.id==='sayfa-anomaliler') anomalierYukle('tumu',null);
+    if(ap&&ap.id==='sayfa-kontrol-paneli') kontrolPaneliYukle();
+  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+function fpModalAc(id) { fpAnomaliId=id; document.getElementById('fp-aciklama').value=''; document.getElementById('fp-modal').classList.add('acik'); modalKapat(); }
+function fpModalKapat() { document.getElementById('fp-modal').classList.remove('acik'); fpAnomaliId=null; }
+
+async function fpGonder() {
+  if (!fpAnomaliId) return;
+  var aciklama = document.getElementById('fp-aciklama').value.trim();
+  try {
+    await apiFetch('/api/v1/anomalies/'+fpAnomaliId+'/false-positive',{method:'POST',body:JSON.stringify({reason:aciklama||null})});
+    fpModalKapat();
+    bildirimGoster('Yanl\u0131\u015f tespit olarak i\u015faretlendi','uyari');
+    var ap=document.querySelector('.sayfa.aktif');
+    if(ap&&ap.id==='sayfa-anomaliler') anomalierYukle('tumu',null);
+    if(ap&&ap.id==='sayfa-kontrol-paneli') kontrolPaneliYukle();
+  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+async function hataKodlariYukle() {
+  var el=document.getElementById('sayfa-hata-kodlari');
+  el.innerHTML='<div class="sayfa-ust"><div><div class="sayfa-baslik">Hata Kodu S\u00f6zl\u00fc\u011f\u00fc</div><div class="sayfa-aciklama">14.746 adet tan\u0131ml\u0131 hata kodu</div></div>'+(yoneticiMi()?'<div class="sayfa-aksiyonlar"><button class="btn mavi" onclick="hataKodlariYenile()">CSV\'den Yenile</button></div>':'')+'</div><div id="hk-icerik">'+yukleniyorHtml()+'</div>';
+  try {
+    var kodlar=await apiFetch('/api/v1/error-codes');
+    var sSay=kodlar?kodlar.filter(function(k){return k.category==='SYS';}).length:0;
+    var iSay=kodlar?kodlar.filter(function(k){return k.category==='BIZ';}).length:0;
+    document.getElementById('hk-icerik').innerHTML=
+      '<div class="izgara izgara-3" style="margin-bottom:16px">'+
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--acc);font-size:22px">'+(kodlar?kodlar.length:0)+'</div><div class="ozet-etiket">Toplam Kod</div></div>'+
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--ora);font-size:22px">'+sSay+'</div><div class="ozet-etiket">Sistem Hatas\u0131 Kodu</div></div>'+
+      '<div class="ozet-kart"><div class="ozet-deger" style="color:var(--red);font-size:22px">'+iSay+'</div><div class="ozet-etiket">\u0130\u015f Hatas\u0131 Kodu</div></div>'+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">T\u00fcm Hata Kodlar\u0131</div>'+
+      '<div style="overflow:auto;max-height:440px"><table class="tablo"><thead><tr><th>Kod</th><th>A\u00e7\u0131klama</th><th>Kategori</th></tr></thead><tbody>'+
+      (kodlar?kodlar.map(function(k){
+        var css=k.category==='SYS'?'et-turuncu':k.category==='BIZ'?'et-kirmizi':'et-yesil';
+        var yazi=k.category==='SYS'?'Sistem Hatas\u0131':k.category==='BIZ'?'\u0130\u015f Hatas\u0131':'Di\u011fer';
+        return '<tr><td style="font-weight:700;color:'+(k.category==='SYS'?'var(--ora)':k.category==='BIZ'?'var(--red)':'var(--grn)')+'">'+k.result_code+'</td><td style="max-width:400px;white-space:normal">'+k.description+'</td><td><span class="etiket '+css+'">'+yazi+'</span></td></tr>';
+      }).join(''):'')+'</tbody></table></div></div>';
+  } catch(e) { document.getElementById('hk-icerik').innerHTML=hataHtml(e.message); }
+}
+
+async function hataKodlariYenile() {
+  try { var r=await apiFetch('/api/v1/error-codes/reload',{method:'POST'}); bildirimGoster((r&&r.reloaded||0)+' hata kodu y\u00fcklendi','basarili'); hataKodlariYukle(); }
+  catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+async function tespitDonguleriYukle() {
+  var el=document.getElementById('sayfa-tespit-donguleri');
+  el.innerHTML='<div class="sayfa-ust"><div><div class="sayfa-baslik">Tespit D\u00f6ng\u00fcleri</div><div class="sayfa-aciklama">Her i\u015flem d\u00f6ng\u00fcs\u00fcn\u00fcn \u00f6zet kayd\u0131</div></div></div><div id="td-icerik">'+yukleniyorHtml()+'</div>';
+  try {
+    var dongular=await apiFetch('/api/v1/runs?limit=50');
+    document.getElementById('td-icerik').innerHTML=
+      '<div class="kart"><table class="tablo"><thead><tr><th>Ba\u015flang\u0131\u00e7 Zaman\u0131</th><th>Biti\u015f Zaman\u0131</th><th>\u0130\u015flenen Log</th><th>Bulunan Anomali</th><th>Durum</th></tr></thead><tbody>'+
+      (dongular?dongular.map(function(d){
+        var css=d.status==='ok'?'et-yesil':d.status==='error'?'et-kirmizi':'et-sari';
+        var yazi=d.status==='ok'?'Ba\u015far\u0131l\u0131':d.status==='error'?'Hata':'Bekliyor';
+        return '<tr>'+
+          '<td>'+(d.started_at?new Date(d.started_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'-')+'</td>'+
+          '<td>'+(d.finished_at?new Date(d.finished_at).toLocaleTimeString('tr-TR',{timeZone:'Europe/Istanbul'}):'-')+'</td>'+
+          '<td>'+((d.logs_processed||0).toLocaleString('tr-TR'))+'</td>'+
+          '<td style="color:'+(d.anomalies_found>0?'var(--red)':'var(--txt2)')+'>'+(d.anomalies_found||0)+'</td>'+
+          '<td><span class="etiket '+css+'">'+yazi+'</span></td></tr>';
+      }).join(''):'')+'</tbody></table></div>';
+  } catch(e) { document.getElementById('td-icerik').innerHTML=hataHtml(e.message); }
+}
+
+async function sreAjaniYukle() {
+  var el=document.getElementById('sayfa-sre-ajan');
+  var sadece=!sreMi();
+  el.innerHTML='<div class="sayfa-ust"><div><div class="sayfa-baslik">SRE Ajan\u0131 Aksiyon Merkezi</div><div class="sayfa-aciklama">'+(sadece?'G\u00f6r\u00fcnt\u00fcleme modu \u2014 Onay i\u00e7in SRE Lider yetkisi gerekli':'Yapay zeka destekli \u2014 \u0130nsan onay\u0131yla \u00e7al\u0131\u015fan sistem')+'</div></div></div><div id="sre-icerik">'+yukleniyorHtml()+'</div>';
+  try {
+    var bekl=await apiFetch('/api/v1/sre/actions?status=pending&limit=20');
+    var tumA=await apiFetch('/api/v1/sre/actions?limit=20');
+    var sayac=document.getElementById('aksiyon-sayaci');
+    if(sayac) sayac.textContent=(bekl&&bekl.length)||0;
+    document.getElementById('sre-icerik').innerHTML=
+      '<div class="iki-kolon">'+
+      '<div class="kart"><div class="kart-baslik">Onay Bekleyen Aksiyonlar</div>'+
+      (bekl&&bekl.length?bekl.map(function(a){
+        return '<div style="background:rgba(202,138,4,.04);border:1px solid rgba(202,138,4,.25);border-radius:10px;padding:12px;margin-bottom:10px">'+
+          '<div style="font-size:12px;font-weight:700;margin-bottom:4px">'+(a.action_type||'-')+' \u2014 '+(a.target||'-')+'</div>'+
+          (a.ai_reasoning?'<div style="font-size:10px;color:var(--txt2);margin-bottom:8px">'+a.ai_reasoning+'</div>':'')+
+          (!sadece?'<div style="display:flex;gap:8px"><button class="btn yesil" onclick="aksiyonOnayla('+a.id+')">Onayla</button><button class="btn kirmizi" onclick="aksiyonReddet('+a.id+')">Reddet</button></div>':'<div style="font-size:10px;color:var(--tea)">Onay i\u00e7in SRE Lider yetkisi gereklidir</div>')+
+          '</div>';
+      }).join(''):bosEkranHtml('Onay bekleyen aksiyon bulunmuyor'))+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">Son Aksiyonlar</div>'+
+      (tumA&&tumA.length?
+        '<table class="tablo"><thead><tr><th>Zaman</th><th>Aksiyon</th><th>Durum</th><th>Onaylayan</th></tr></thead><tbody>'+
+        tumA.map(function(a){
+          var css=a.status==='done'?'et-yesil':a.status==='pending'?'et-sari':a.status==='rejected'?'et-kirmizi':'et-mavi';
+          var yazi=a.status==='done'?'Tamamland\u0131':a.status==='pending'?'Bekliyor':a.status==='rejected'?'Reddedildi':'Onayand\u0131';
+          return '<tr><td>'+(a.created_at?new Date(a.created_at).toLocaleTimeString('tr-TR',{timeZone:'Europe/Istanbul'}):'-')+'</td><td>'+(a.action_type||'-')+'</td><td><span class="etiket '+css+'">'+yazi+'</span></td><td>'+(a.approved_by||(a.auto?'Otomatik':'-'))+'</td></tr>';
+        }).join('')+'</tbody></table>':bosEkranHtml('Hen\u00fcz aksiyon kaydedilmemi\u015f'))+
+      '</div></div>';
+  } catch(e) { document.getElementById('sre-icerik').innerHTML=hataHtml(e.message); }
+}
+
+async function aksiyonOnayla(id) {
+  try { await apiFetch('/api/v1/sre/actions/'+id+'/approve',{method:'POST'}); bildirimGoster('Aksiyon onayand\u0131','basarili'); sreAjaniYukle(); }
+  catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+async function aksiyonReddet(id) {
+  try { await apiFetch('/api/v1/sre/actions/'+id+'/reject',{method:'POST'}); bildirimGoster('Aksiyon reddedildi','uyari'); sreAjaniYukle(); }
+  catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+async function anomaliAyarlariYukle() {
+  var el=document.getElementById('sayfa-anomali-ayarlari');
+  el.innerHTML='<div class="sayfa-ust"><div><div class="sayfa-baslik">Anomali Ayarlar\u0131</div><div class="sayfa-aciklama">Motor konfig\u00fcrasyonu \u2014 De\u011fi\u015fiklikler 60 saniye i\u00e7inde devreye girer</div></div><div class="sayfa-aksiyonlar"><button class="btn mavi" id="ayar-kaydet-btn" onclick="anomaliAyarlariKaydet()">Ayarlar\u0131 Kaydet</button></div></div><div id="aa-icerik">'+yukleniyorHtml()+'</div>';
+  try {
+    var ayarlar=await apiFetch('/api/v1/settings');
+    var s={};
+    ayarlar.forEach(function(a){s[a.key]=a.value;});
+    document.getElementById('aa-icerik').innerHTML=
+      '<div class="iki-kolon">'+
+      '<div class="kart"><div class="kart-baslik">Model Se\u00e7enekleri</div>'+
+      toggleSatir('toggle-zscore','Z-Skoru Modeli',s['zscore_enabled']==='true')+
+      toggleSatir('toggle-if','\u0130zolasyon Orman\u0131 Modeli',s['if_enabled']==='true')+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">Genel Parametreler</div>'+
+      ayarGirdisi('min_tx_count','Min. \u0130\u015flem Say\u0131s\u0131',s['min_tx_count'],'Anomali \u00fcretmek i\u00e7in gereken minimum i\u015flem say\u0131s\u0131')+
+      ayarGirdisi('min_slow_tx_count','Min. Yava\u015f \u0130\u015flem',s['min_slow_tx_count'],'Gecikme anomalisi i\u00e7in e\u015fi\u011fi a\u015fan minimum i\u015flem say\u0131s\u0131')+
+      ayarGirdisi('cooldown_seconds','Bekleme S\u00fcresi (sn)',s['cooldown_seconds'],'Ayn\u0131 anomali i\u00e7in tekrar alarm \u00fcretmeden \u00f6nce bekleme s\u00fcresi')+
+      ayarGirdisi('sliding_window_seconds','Kayan Pencere (sn)',s['sliding_window_seconds'],'Hata kodu spike tespiti i\u00e7in zaman penceresi')+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">Gecikme E\u015fikleri</div>'+
+      ayarGirdisi('rule_elapsed_p99_disaster','p99 Kritik E\u015fi\u011fi (ms)',s['rule_elapsed_p99_disaster'],'\u0130\u015flemlerin %99\'u bu de\u011feri ge\u00e7erse KR\u0130T\u0130K anomali \u00fcretilir')+
+      ayarGirdisi('rule_elapsed_p95_high','p95 Y\u00fcksek E\u015fi\u011fi (ms)',s['rule_elapsed_p95_high'],'\u0130\u015flemlerin %95\'i bu de\u011feri ge\u00e7erse Y\u00dcKSEK anomali \u00fcretilir')+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">Hata Oran\u0131 E\u015fikleri</div>'+
+      ayarGirdisi('rule_error_rate_disaster','Kritik Hata Oran\u0131 (0-1)',s['rule_error_rate_disaster'],'Bu oran\u0131 a\u015fan hata oran\u0131 KR\u0130T\u0130K anomali olu\u015fturur. \u00d6rn: 0.50')+
+      ayarGirdisi('rule_error_rate_high','Y\u00fcksek Hata Oran\u0131 (0-1)',s['rule_error_rate_high'],'Bu oran\u0131 a\u015fan hata oran\u0131 Y\u00dcKSEK anomali olu\u015fturur. \u00d6rn: 0.30')+
+      '</div>'+
+      '<div class="kart"><div class="kart-baslik">Hata Kodu Spike E\u015fikleri</div>'+
+      ayarGirdisi('sys_error_code_threshold','Sistem Hatas\u0131 Spike E\u015fi\u011fi',s['sys_error_code_threshold'],'30 dakikada bu kadar SYS hata kodu g\u00f6r\u00fclmesi halinde anomali \u00fcretilir')+
+      ayarGirdisi('biz_error_code_threshold','\u0130\u015f Hatas\u0131 Spike E\u015fi\u011fi',s['biz_error_code_threshold'],'30 dakikada bu kadar BIZ hata kodu g\u00f6r\u00fclmesi halinde anomali \u00fcretilir')+
+      '</div>'+
+      '</div>'+
+      '<div style="margin-top:12px;padding:10px 14px;background:rgba(202,138,4,.06);border:1px solid rgba(202,138,4,.2);border-radius:8px;font-size:10px;color:var(--yel)">Kaydedilen ayarlar 60 saniye i\u00e7inde motor taraf\u0131ndan otomatik olarak uygulan\u0131r.</div>';
+  } catch(e) { document.getElementById('aa-icerik').innerHTML=hataHtml(e.message); }
+}
+
+function toggleSatir(id, etiket, aktif) {
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="font-size:12px;font-weight:600;flex:1">'+etiket+'</div><button id="'+id+'" class="toggle '+(aktif?'acik':'kapali')+'" onclick="toggleDegistir(this)"></button><span style="font-size:10px;color:var(--txt2);margin-left:8px">'+(aktif?'Aktif':'Pasif')+'</span></div>';
+}
+
+function ayarGirdisi(anahtar, etiket, deger, aciklama) {
+  return '<div style="margin-bottom:12px"><label style="font-size:10px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">'+etiket+'</label><input id="ayar-'+anahtar+'" class="form-girdi" value="'+(deger||'')+'" />'+(aciklama?'<div style="font-size:9px;color:var(--txt3);margin-top:3px">'+aciklama+'</div>':'')+'</div>';
+}
+
+function toggleDegistir(btn) {
+  btn.classList.toggle('acik'); btn.classList.toggle('kapali');
+  var span=btn.nextElementSibling;
+  if(span) span.textContent=btn.classList.contains('acik')?'Aktif':'Pasif';
+}
+
+async function anomaliAyarlariKaydet() {
+  var btn=document.getElementById('ayar-kaydet-btn');
+  btn.disabled=true; btn.textContent='Kaydediliyor...';
+  try {
+    var govde={};
+    var z=document.getElementById('toggle-zscore'); if(z) govde['zscore_enabled']=z.classList.contains('acik')?'true':'false';
+    var f=document.getElementById('toggle-if'); if(f) govde['if_enabled']=f.classList.contains('acik')?'true':'false';
+    ['min_tx_count','min_slow_tx_count','cooldown_seconds','sliding_window_seconds','rule_elapsed_p99_disaster','rule_elapsed_p95_high','rule_error_rate_disaster','rule_error_rate_high','sys_error_code_threshold','biz_error_code_threshold'].forEach(function(k){
+      var el=document.getElementById('ayar-'+k); if(el) govde[k]=el.value.trim();
+    });
+    await apiFetch('/api/v1/settings',{method:'POST',body:JSON.stringify(govde)});
+    bildirimGoster('Ayarlar ba\u015far\u0131yla kaydedildi','basarili');
+  } catch(e) { bildirimGoster('Kaydetme hatas\u0131: '+e.message,'hata'); }
+  btn.disabled=false; btn.textContent='Ayarlar\u0131 Kaydet';
+}
+
+async function kanalTanimlariYukle() {
+  var el=document.getElementById('sayfa-kanal-tanimlari');
+  el.innerHTML=
+    '<div class="sayfa-ust"><div><div class="sayfa-baslik">Kanal Tan\u0131mlar\u0131</div><div class="sayfa-aciklama">Kanal kodu ve isim e\u015fle\u015ftirmesi y\u00f6netimi</div></div></div>'+
+    '<div class="kart" style="margin-bottom:16px"><div class="kart-baslik">Yeni Tan\u0131m Ekle veya Mevcut G\u00fcncelle</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:10px;align-items:end">'+
+    '<div><label style="font-size:10px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Kanal Kodu</label><input id="kanal-kodu" class="form-girdi" placeholder="708"/></div>'+
+    '<div><label style="font-size:10px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Kanal Ad\u0131</label><input id="kanal-adi" class="form-girdi" placeholder="G\u00f6r\u00fcnmez Bankac\u0131l\u0131k"/></div>'+
+    '<div><label style="font-size:10px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">A\u00e7\u0131klama (Opsiyonel)</label><input id="kanal-aciklama" class="form-girdi" placeholder="Kanal hakk\u0131nda k\u0131sa bilgi..."/></div>'+
+    '<div><button class="btn yesil" onclick="kanalKaydet()">Kaydet</button></div>'+
+    '</div></div>'+
+    '<div id="kanal-listesi">'+yukleniyorHtml()+'</div>';
+  await kanalListesiYukle();
+}
+
+async function kanalListesiYukle() {
+  try {
+    var kanallar=await apiFetch('/api/v1/channel-mappings');
+    var html='<div class="kart"><div class="kart-baslik">Tan\u0131ml\u0131 Kanallar ('+kanallar.length+' adet)</div>'+
+      '<table class="tablo"><thead><tr><th>Kanal Kodu</th><th>Kanal Ad\u0131</th><th>A\u00e7\u0131klama</th><th>Son G\u00fcncelleme</th><th>\u0130\u015flem</th></tr></thead><tbody>';
+    kanallar.forEach(function(k){
+      html+='<tr onclick="kanalDuzenle(\''+k.channel_code+'\',\''+k.channel_name.replace(/'/g,"\\'")+'\',\''+(k.description||'').replace(/'/g,"\\'")+'\''+')" style="cursor:pointer">'+
+        '<td style="font-weight:700;color:var(--acc)">'+k.channel_code+'</td>'+
+        '<td style="font-weight:600">'+k.channel_name+'</td>'+
+        '<td style="color:var(--txt2)">'+(k.description||'-')+'</td>'+
+        '<td>'+(k.updated_at?new Date(k.updated_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'-')+'</td>'+
+        '<td onclick="event.stopPropagation()"><button class="btn kirmizi" style="padding:2px 8px;font-size:9px" onclick="kanalSil(\''+k.channel_code+'\')">Sil</button></td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('kanal-listesi').innerHTML=html;
+  } catch(e) { document.getElementById('kanal-listesi').innerHTML=hataHtml(e.message); }
+}
+
+function kanalDuzenle(kod,ad,aciklama) {
+  document.getElementById('kanal-kodu').value=kod;
+  document.getElementById('kanal-adi').value=ad;
+  document.getElementById('kanal-aciklama').value=aciklama||'';
+}
+
+async function kanalKaydet() {
+  var kod=document.getElementById('kanal-kodu').value.trim();
+  var ad=document.getElementById('kanal-adi').value.trim();
+  var aciklama=document.getElementById('kanal-aciklama').value.trim();
+  if(!kod||!ad){bildirimGoster('Kanal kodu ve ad\u0131 zorunludur','uyari');return;}
+  try {
+    await apiFetch('/api/v1/channel-mappings',{method:'POST',body:JSON.stringify({channel_code:kod,channel_name:ad,description:aciklama||null})});
+    bildirimGoster('Kanal tan\u0131m\u0131 kaydedildi: '+kod+' \u2192 '+ad,'basarili');
+    document.getElementById('kanal-kodu').value='';
+    document.getElementById('kanal-adi').value='';
+    document.getElementById('kanal-aciklama').value='';
+    await kanalListesiYukle();
+  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+async function kanalSil(kod) {
+  if(!confirm(kod+' kodlu kanal tan\u0131m\u0131 silinecek. Onaylay\u0131n\u0131z.')) return;
+  try {
+    await apiFetch('/api/v1/channel-mappings/'+kod,{method:'DELETE'});
+    bildirimGoster('Kanal tan\u0131m\u0131 silindi: '+kod,'uyari');
+    await kanalListesiYukle();
+  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+}
+
+async function denetimKayitlariYukle() {
+  var el=document.getElementById('sayfa-denetim-kayitlari');
+  el.innerHTML='<div class="sayfa-ust"><div><div class="sayfa-baslik">Denetim Kay\u0131tlar\u0131</div><div class="sayfa-aciklama">T\u00fcm kullan\u0131c\u0131 aksiyonlar\u0131n\u0131n kronolojik kayd\u0131</div></div></div><div id="dk-icerik">'+yukleniyorHtml()+'</div>';
+  try {
+    var kayitlar=await apiFetch('/api/v1/audit-logs?limit=200');
+    document.getElementById('dk-icerik').innerHTML=
+      '<div class="kart"><table class="tablo"><thead><tr><th>Tarih / Saat</th><th>Kullan\u0131c\u0131</th><th>Aksiyon</th><th>Hedef</th><th>Detay</th><th>IP Adresi</th><th>Sonu\u00e7</th></tr></thead><tbody>'+
+      (kayitlar?kayitlar.map(function(k){
+        var sCss=k.result==='success'?'et-yesil':'et-kirmizi';
+        var sYazi=k.result==='success'?'Ba\u015far\u0131l\u0131':'Ba\u015far\u0131s\u0131z';
+        var aCss=k.action&&k.action.includes('false_positive')?'et-kirmizi':k.action&&k.action.includes('delete')?'et-kirmizi':k.action&&(k.action.includes('update')||k.action.includes('upsert'))?'et-sari':'et-mavi';
+        return '<tr>'+
+          '<td>'+(k.created_at?new Date(k.created_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'}):'-')+'</td>'+
+          '<td style="font-weight:600;color:var(--acc)">'+(k.user||'-')+'</td>'+
+          '<td><span class="etiket '+aCss+'">'+(k.action||'-')+'</span></td>'+
+          '<td style="color:var(--txt2)">'+(k.target||'-')+'</td>'+
+          '<td style="max-width:200px;white-space:normal;color:var(--txt2)">'+(k.detail||'-')+'</td>'+
+          '<td style="color:var(--txt3)">'+(k.ip_address||'-')+'</td>'+
+          '<td><span class="etiket '+sCss+'">'+sYazi+'</span></td></tr>';
+      }).join(''):'')+'</tbody></table></div>';
+  } catch(e) { document.getElementById('dk-icerik').innerHTML=hataHtml(e.message); }
+}
+
+function modalKapat(){document.getElementById('anomali-modal').classList.remove('acik');}
+
+function sifreDegistirModalAc(){
+  document.getElementById('mevcut-sifre').value='';
+  document.getElementById('yeni-sifre').value='';
+  document.getElementById('yeni-sifre-tekrar').value='';
+  document.getElementById('sifre-hata').style.display='none';
+  document.getElementById('sifre-modal').classList.add('acik');
+}
+function sifreDegistirModalKapat(){document.getElementById('sifre-modal').classList.remove('acik');}
+
+async function sifreDegistir() {
+  var mevcut=document.getElementById('mevcut-sifre').value;
+  var yeni=document.getElementById('yeni-sifre').value;
+  var tekrar=document.getElementById('yeni-sifre-tekrar').value;
+  var hEl=document.getElementById('sifre-hata');
+  if(!mevcut||!yeni||!tekrar){hEl.textContent='T\u00fcm alanlar zorunludur';hEl.style.display='block';return;}
+  if(yeni.length<8){hEl.textContent='Yeni \u015fifre en az 8 karakter olmal\u0131d\u0131r';hEl.style.display='block';return;}
+  if(yeni!==tekrar){hEl.textContent='Yeni \u015fifreler birbirinden farkl\u0131';hEl.style.display='block';return;}
+  try {
+    await apiFetch('/api/v1/user/change-password',{method:'POST',body:JSON.stringify({current_password:mevcut,new_password:yeni})});
+    sifreDegistirModalKapat();
+    bildirimGoster('\u015eifreniz ba\u015far\u0131yla g\u00fcncellendi. Yeniden giri\u015f yapman\u0131z gerekiyor.','basarili');
+    setTimeout(function(){cikisYap();},2000);
+  } catch(e) {hEl.textContent=e.message||'\u015eifre g\u00fcncellenemedi';hEl.style.display='block';}
+}
+
+function yukleniyorHtml(){return '<div class="yukleniyor"><div class="dongu"></div>Veriler y\u00fckleniyor...</div>';}
+function bosEkranHtml(m){return '<div style="text-align:center;padding:30px;color:var(--txt3);font-size:12px">'+m+'</div>';}
+function hataHtml(m){return '<div style="text-align:center;padding:30px;color:var(--red);font-size:12px">Veri y\u00fcklenirken hata olu\u015ftu: '+m+'</div>';}
+
+function bildirimGoster(mesaj,tur){
+  tur=tur||'bilgi';
+  var alan=document.getElementById('bildirim-alani');
+  var b=document.createElement('div');
+  b.className='bildirim bil-'+tur;
+  var ikonlar={basarili:'&#10003;',hata:'&#10007;',bilgi:'&#8505;',uyari:'&#9888;'};
+  b.innerHTML='<span>'+(ikonlar[tur]||'')+'</span><span>'+mesaj+'</span>';
+  alan.appendChild(b);
+  setTimeout(function(){b.style.opacity='0';b.style.transform='translateX(20px)';b.style.transition='all .3s';setTimeout(function(){b.remove();},300);},4000);
+}
+</script>
+</body>
+</html>
