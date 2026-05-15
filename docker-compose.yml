@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  engine:
+    image: lumen-engine:latest
+    container_name: lumen-engine
+    restart: unless-stopped
+    env_file: /data/lumen/.env
+    volumes:
+      - /data/lumen/config:/app/config:z
+      - /data/lumen/logs:/app/logs:z
+      - /data/lumen/data/models:/app/data/models:z
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        limits:
+          memory: 56G
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    image: lumen-app:latest
+    container_name: lumen-app
+    restart: unless-stopped
+    env_file: /data/lumen/.env
+    volumes:
+      - /data/lumen/config:/app/config:z
+      - /data/lumen/logs:/app/logs:z
+    ports:
+      - "8080:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "3"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: lumen-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - /data/lumen/data/redis:/data:z
+    ports:
+      - "6379:6379"
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: lumen-nginx
+    restart: unless-stopped
+    volumes:
+      - /data/lumen/nginx:/etc/nginx/conf.d:z
+      - /data/lumen/frontend:/usr/share/nginx/html:z
+      - /data/lumen/ssl:/etc/nginx/ssl:z
+    ports:
+      - "80:80"
+      - "443:443"
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "2"
+    depends_on:
+      - app
