@@ -1,0 +1,177 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Anomaliler{% endblock %}
+{% block page_title %}Anomaliler{% endblock %}
+
+{% block content %}
+
+<!-- ── FILTERS ── -->
+<div class="card mb-16">
+  <div class="card-body" style="padding:12px 18px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--txt2);font-weight:600">Seviye:</span>
+      <button class="btn {{ 'active' if not severity_filter }}" onclick="filterAnomaly('severity','')">Tümü</button>
+      <button class="btn {{ 'active' if severity_filter == 'DISASTER' }}" onclick="filterAnomaly('severity','DISASTER')" style="color:var(--red)">DISASTER</button>
+      <button class="btn {{ 'active' if severity_filter == 'HIGH' }}" onclick="filterAnomaly('severity','HIGH')">HIGH</button>
+      <button class="btn {{ 'active' if severity_filter == 'WARNING' }}" onclick="filterAnomaly('severity','WARNING')">WARNING</button>
+
+      <div class="btn-sep"></div>
+
+      <span style="font-size:12px;color:var(--txt2);font-weight:600">Tip:</span>
+      <button class="btn {{ 'active' if not type_filter }}" onclick="filterAnomaly('type','')">Tümü</button>
+      <button class="btn {{ 'active' if type_filter == 'rule' }}" onclick="filterAnomaly('type','rule')">rule</button>
+      <button class="btn {{ 'active' if type_filter == 'zscore' }}" onclick="filterAnomaly('type','zscore')">zscore</button>
+      <button class="btn {{ 'active' if type_filter == 'ml_p95' }}" onclick="filterAnomaly('type','ml_p95')">ml_p95</button>
+
+      <div class="btn-sep"></div>
+
+      <input type="text" placeholder="Servis ara..." id="svc-search"
+             style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;width:160px"
+             oninput="searchService(this.value)">
+
+      <span style="margin-left:auto;font-size:12px;color:var(--txt2)">
+        Toplam: <strong>{{ total_count | default(0) }}</strong> anomali
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABLE ── -->
+<div class="card">
+  <div class="card-hd">
+    <div class="card-title">Anomali Listesi</div>
+    <div class="card-actions">
+      <button class="btn" onclick="exportCSV()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:middle;margin-right:4px">
+          <path d="M8 1v10M4 8l4 4 4-4"/><rect x="2" y="12" width="12" height="2" rx="1"/>
+        </svg>
+        CSV İndir
+      </button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="anomaly-table">
+      <thead>
+        <tr>
+          <th>Zaman</th>
+          <th>Servis</th>
+          <th>Kanal</th>
+          <th>Seviye</th>
+          <th>Tip</th>
+          <th>Hata %</th>
+          <th>Süre ms</th>
+          <th>Tx Sayısı</th>
+          <th>Özet</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in anomalies | default([]) %}
+          <tr>
+            <td class="td-mono">{{ a.detected_at | strftime('%H:%M:%S') }}</td>
+            <td class="td-primary">{{ a.service }}</td>
+            <td class="td-mono">{{ a.channel_code }}</td>
+            <td>
+              <span class="badge badge-{% if a.severity == 'DISASTER' %}red{% elif a.severity == 'HIGH' %}orange{% else %}amber{% endif %}">
+                {{ a.severity }}
+              </span>
+            </td>
+            <td>
+              <span class="badge badge-gray">{{ a.detection_type }}</span>
+            </td>
+            <td class="{% if a.error_rate > 20 %}text-red{% elif a.error_rate > 5 %}text-orange{% endif %} fw-bold">
+              {{ "%.1f"|format(a.error_rate) }}%
+            </td>
+            <td>{{ a.elapsed_mean | int }}</td>
+            <td>{{ a.tx_count | default('-') }}</td>
+            <td class="td-mono" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              {{ a.summary | default('—') }}
+            </td>
+            <td>
+              <button class="btn" onclick="showRCA({{ a.id }})">RCA →</button>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="10" style="text-align:center;padding:30px;color:var(--txt3)">
+              Bu filtreye uygun anomali bulunamadı
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages and total_pages > 1 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--txt2)">
+        Sayfa {{ current_page }} / {{ total_pages }} — {{ total_count }} kayıt
+      </div>
+      <div style="display:flex;gap:4px">
+        {% if current_page > 1 %}
+          <a href="?page={{ current_page - 1 }}&severity={{ severity_filter }}&type={{ type_filter }}" class="btn">← Önceki</a>
+        {% endif %}
+        {% if current_page < total_pages %}
+          <a href="?page={{ current_page + 1 }}&severity={{ severity_filter }}&type={{ type_filter }}" class="btn">Sonraki →</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ── RCA MODAL ── -->
+<div id="rca-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:8px;width:600px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="font-size:14px;font-weight:600;color:var(--txt);flex:1">LLM Root Cause Analysis</div>
+      <button onclick="closeRCA()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:18px">✕</button>
+    </div>
+    <div id="rca-content" style="padding:20px;font-size:13px;color:var(--txt2);line-height:1.7">
+      Yükleniyor...
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterAnomaly(key, val) {
+  const url = new URL(window.location);
+  url.searchParams.set(key, val);
+  url.searchParams.set('page', 1);
+  window.location = url;
+}
+
+function searchService(q) {
+  const rows = document.querySelectorAll('#anomaly-table tbody tr');
+  rows.forEach(r => {
+    const svc = r.cells[1]?.textContent || '';
+    r.style.display = svc.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function showRCA(id) {
+  document.getElementById('rca-modal').style.display = 'flex';
+  document.getElementById('rca-content').innerHTML = 'Yükleniyor...';
+  fetch(`/api/v1/anomalies/${id}/rca`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('rca-content').innerHTML =
+        `<pre style="white-space:pre-wrap;font-family:inherit">${d.rca_text || 'RCA henüz üretilmedi.'}</pre>`;
+    })
+    .catch(() => {
+      document.getElementById('rca-content').innerHTML = 'RCA yüklenemedi.';
+    });
+}
+
+function closeRCA() {
+  document.getElementById('rca-modal').style.display = 'none';
+}
+
+function exportCSV() {
+  window.location = '/api/v1/anomalies/export?format=csv';
+}
+</script>
+{% endblock %}

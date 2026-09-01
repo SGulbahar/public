@@ -1,0 +1,234 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-20">
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--amber-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="#856404" stroke-width="1.5">
+        <path d="M8 2L1 14h14z"/>
+        <line x1="8" y1="6" x2="8" y2="10"/>
+        <circle cx="8" cy="12.5" r=".5" fill="#856404"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-val">{{ stats.anomaly_count | default(0) | int }}</div>
+      <div class="stat-lbl">Toplam Anomali</div>
+      <div class="stat-delta" style="background:var(--orange-light);color:var(--orange)">
+        ↑ +{{ stats.anomaly_delta | default(0) }} son saat
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5">
+        <circle cx="8" cy="8" r="7"/>
+        <line x1="8" y1="5" x2="8" y2="9"/>
+        <circle cx="8" cy="11.5" r=".6" fill="var(--red)"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-val">{{ stats.incident_count | default(0) }}</div>
+      <div class="stat-lbl">Aktif Incident</div>
+      <div class="stat-delta" style="background:var(--red-light);color:var(--red)">
+        {{ stats.incident_status | default('Aktif') }}
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--orange-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--orange)" stroke-width="1.5">
+        <path d="M8 1l7 13H1z"/>
+        <line x1="8" y1="7" x2="8" y2="11"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-val">{{ stats.zabbix_count | default(0) }}</div>
+      <div class="stat-lbl">Zabbix DISASTER</div>
+      <div class="stat-delta" style="background:var(--green-light);color:var(--green)">
+        ↓ −{{ stats.zabbix_delta | default(0) }} son saat
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--green-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5">
+        <path d="M1 8h2.5l2-4 2.5 8 2-7 2 5 1.5-2H15"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-val">{{ stats.health_pct | default(100) }}%</div>
+      <div class="stat-lbl">Servis Sağlığı</div>
+      <div class="stat-delta" style="background:var(--green-light);color:var(--green)">
+        ↑ +{{ stats.health_delta | default(0) }}% haftalık
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── ROW 1: Timeline + Top Services ── -->
+<div class="row">
+
+  <!-- Anomali Timeline -->
+  <div class="col-2 card">
+    <div class="card-hd">
+      <div class="card-title">Anomali Zaman Çizelgesi</div>
+      <div class="card-actions">
+        <button class="btn active" onclick="setTimeFilter(this,'1h')">1 Saat</button>
+        <button class="btn" onclick="setTimeFilter(this,'24h')">24 Saat</button>
+        <button class="btn" onclick="setTimeFilter(this,'7d')">7 Gün</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="tl-wrap" id="timeline-wrap">
+        <div class="tl-track"></div>
+        {% for item in timeline | default([]) %}
+          <div class="tl-node" style="left:{{ item.pct }}%">
+            {% if item.severity == 'DISASTER' %}
+              <div class="tl-tri" style="border-bottom:13px solid var(--red)"
+                   title="{{ item.service }} — {{ item.time }}"></div>
+            {% elif item.severity == 'HIGH' %}
+              <div class="tl-dot" style="width:12px;height:12px;background:var(--orange)"
+                   title="{{ item.service }} — {{ item.time }}"></div>
+            {% else %}
+              <div class="tl-dot" style="width:10px;height:10px;background:var(--amber)"
+                   title="{{ item.service }} — {{ item.time }}"></div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="tl-axis">
+        <span id="tl-start">{{ tl_start | default('00:00') }}</span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span id="tl-end">Şimdi</span>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:12px;font-size:11px;color:var(--txt2)">
+        <span>
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:4px;vertical-align:middle"></span>
+          Warning
+        </span>
+        <span>
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--orange);margin-right:4px;vertical-align:middle"></span>
+          High
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:4px">
+          <span style="display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--red)"></span>
+          Disaster
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- En Çok Anomali -->
+  <div class="col card">
+    <div class="card-hd">
+      <div class="card-title">En Çok Anomali</div>
+      <div class="card-actions">
+        <button class="btn active">Servis</button>
+        <button class="btn">Kanal</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:14px 18px">
+      {% for svc in top_services | default([]) %}
+        <div class="bar-row">
+          <div class="bar-name" title="{{ svc.name }}">{{ svc.name | truncate(18, True, '') }}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:{{ svc.pct }}%;background:var(--{{ svc.color | default('orange') }})"></div>
+          </div>
+          <div class="bar-val" style="color:var(--{{ svc.color | default('orange') }})">{{ svc.count }}</div>
+        </div>
+      {% else %}
+        <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Veri yok</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── ROW 2: Incidents + Zabbix + Live Stream ── -->
+<div class="row">
+
+  <!-- Aktif Incidentlar -->
+  <div class="col card">
+    <div class="card-hd">
+      <div class="card-title">Aktif Incidentlar</div>
+      <a href="{{ url_for('incident_merkezi') }}" class="btn">Tümü →</a>
+    </div>
+    <div class="card-body" style="padding:8px 18px">
+      {% for inc in recent_incidents | default([]) %}
+        <div class="inc-row">
+          <div class="inc-id">{{ inc.id }}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;color:var(--txt);margin-bottom:3px;font-weight:600">{{ inc.title }}</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span class="badge badge-{{ inc.severity_color | default('red') }}">{{ inc.severity }}</span>
+              <span style="font-size:11px;color:var(--txt2)">{{ inc.affected }} servis · {{ inc.source }} · {{ inc.elapsed }}</span>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Aktif incident yok</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Zabbix Alarmları -->
+  <div class="col card">
+    <div class="card-hd">
+      <div class="card-title">Zabbix Alarmları</div>
+      <a href="{{ url_for('zabbix_alarmlar') }}" class="btn">Tümü →</a>
+    </div>
+    <div class="card-body" style="padding:8px 18px">
+      {% for alarm in recent_zabbix | default([]) %}
+        <div class="alarm-row">
+          <div class="alarm-ind" style="background:var(--red)"></div>
+          <div style="flex:1">
+            <div class="alarm-title">{{ alarm.name }}</div>
+            <div class="alarm-meta">
+              <span class="badge badge-red">DISASTER</span>
+              {% if alarm.bmc_service %}
+                <span style="font-size:11px;color:var(--teal)">BMC ✓ {{ alarm.bmc_service }}</span>
+              {% endif %}
+              <span style="font-size:11px;color:var(--txt2);margin-left:auto">{{ alarm.elapsed }}</span>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Aktif alarm yok</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Canlı Anomali Akışı -->
+  <div class="col card">
+    <div class="card-hd">
+      <div class="card-title">Canlı Akış</div>
+      <span class="live-dot"></span>
+    </div>
+    <div class="card-body" style="padding:8px 18px">
+      {% for item in live_stream | default([]) %}
+        <div class="log-row">
+          <div class="log-ts">{{ item.time }}</div>
+          <div class="log-svc" style="color:var(--{{ item.color | default('txt2') }})">{{ item.service | truncate(12, True, '') }}</div>
+          <div class="log-msg">{{ item.type }} · %{{ item.error_rate }} · {{ item.elapsed }}ms</div>
+        </div>
+      {% else %}
+        <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Veri bekleniyor...</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

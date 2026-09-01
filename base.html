@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Lumen AIOps{% endblock %} — Fibabanka SRE</title>
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Lumen CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/lumen.css') }}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══ SIDEBAR ══ -->
+  {% include "includes/sidebar.html" %}
+
+  <!-- ══ MAIN ══ -->
+  <div class="main">
+
+    <!-- ══ NAVBAR ══ -->
+    {% include "includes/navbar.html" %}
+
+    <!-- ══ CONTENT ══ -->
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SCRIPTS ══ -->
+<script src="{{ url_for('static', path='js/lumen.js') }}"></script>
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>
