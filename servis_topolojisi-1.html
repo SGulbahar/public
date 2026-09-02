@@ -1,0 +1,457 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Servis Topolojisi{% endblock %}
+{% block page_title %}Servis Topolojisi{% endblock %}
+
+{% block extra_css %}
+<style>
+.topo-wrap { position: relative; width: 100%; height: 480px; background: var(--bg); border-radius: 0 0 6px 6px; overflow: hidden; }
+.topo-controls { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+.topo-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); background: var(--card); color: var(--txt2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+.topo-btn:hover { border-color: var(--blue); color: var(--blue); }
+.topo-legend { position: absolute; bottom: 10px; left: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--txt2); z-index: 10; }
+.topo-legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.topo-legend-row:last-child { margin-bottom: 0; }
+.node-tooltip { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--txt); pointer-events: none; z-index: 100; display: none; max-width: 320px; box-shadow: 0 4px 12px rgba(0,0,0,.2); line-height: 1.6; }
+.svc-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 16px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid; margin: 3px; transition: all .12s; }
+.svc-chip:hover { opacity: .85; }
+.svc-chip.active { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px currentColor; }
+.search-wrap { position: absolute; top: 10px; left: 10px; z-index: 10; }
+.search-input { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--txt); font-size: 11px; font-family: inherit; width: 180px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-16" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--blue-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><circle cx="2" cy="3" r="1.5"/><circle cx="14" cy="3" r="1.5"/><circle cx="8" cy="14" r="1.5"/><line x1="3.3" y1="4.2" x2="6.2" y2="6.2"/><line x1="12.7" y1="4.2" x2="9.8" y2="6.2"/><line x1="8" y1="10.5" x2="8" y2="12.5"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-services" style="color:var(--blue)">—</div>
+      <div class="stat-lbl">Business Service</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0f0f0">
+      <svg viewBox="0 0 16 16" fill="none" stroke="#666" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><line x1="4" y1="7" x2="12" y2="7"/><line x1="4" y1="10" x2="9" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-hosts">—</div>
+      <div class="stat-lbl">Host</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M8 2L1 14h14z"/><line x1="8" y1="6" x2="8" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-alarmed" style="color:var(--red)">—</div>
+      <div class="stat-lbl">Alarmlı Host</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--orange-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--orange)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-alarms" style="color:var(--orange)">—</div>
+      <div class="stat-lbl">Aktif Alarm</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SERVİS CHİPLERİ ── -->
+<div class="card mb-16">
+  <div class="card-hd">
+    <div class="card-title">Alarmlı Servisler</div>
+    <div class="card-actions">
+      <input class="search-input" style="position:static;width:180px" type="text" id="svc-search" placeholder="Servis ara..." oninput="filterChips(this.value)">
+      <button class="btn" onclick="showAll()">Tüm Graf →</button>
+    </div>
+  </div>
+  <div class="card-body" style="padding:10px 16px">
+    <div id="chip-list">
+      <span style="color:var(--txt3);font-size:12px">Yükleniyor...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── GRAPH PANEL ── -->
+<div class="card" id="graph-panel" style="display:none">
+  <div class="card-hd">
+    <div class="card-title" id="graph-title">Topoloji</div>
+    <div class="card-actions">
+      <button class="btn" onclick="zoom(1.2)">+</button>
+      <button class="btn" onclick="zoom(0.8)">−</button>
+      <button class="btn" onclick="resetZoom()">↺</button>
+      <button class="btn" onclick="document.getElementById('graph-panel').style.display='none'">✕</button>
+    </div>
+  </div>
+  <div class="topo-wrap" id="topo-wrap">
+    <div class="search-wrap">
+      <input class="search-input" type="text" id="node-search" placeholder="Node ara..." oninput="highlightNode(this.value)">
+    </div>
+    <div class="topo-controls">
+      <button class="topo-btn" onclick="zoom(1.2)">+</button>
+      <button class="topo-btn" onclick="zoom(0.8)">−</button>
+      <button class="topo-btn" onclick="resetZoom()">⊙</button>
+    </div>
+    <div class="topo-legend">
+      <div class="topo-legend-row"><div style="width:14px;height:14px;border-radius:3px;background:#2563EB;opacity:.8"></div>Business Service</div>
+      <div class="topo-legend-row"><div style="width:12px;height:12px;border-radius:50%;background:#EF4444"></div>Alarmlı Host</div>
+      <div class="topo-legend-row"><div style="width:12px;height:12px;border-radius:50%;background:#64748b"></div>Normal Host</div>
+    </div>
+    <svg id="topo-svg" style="width:100%;height:100%"></svg>
+    <div class="node-tooltip" id="tooltip"></div>
+  </div>
+
+  <!-- Node detay -->
+  <div id="node-detail" style="display:none;padding:14px 18px;border-top:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div id="nd-name" style="font-size:14px;font-weight:700;color:var(--txt);font-family:monospace;flex:1"></div>
+      <button class="btn" onclick="document.getElementById('node-detail').style.display='none'">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Tip</div>
+        <div id="nd-type" style="font-size:12px;color:var(--txt2)"></div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;padding:8px 12px">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Aktif Alarm</div>
+        <div id="nd-alarmcount" style="font-size:12px;color:var(--red);font-weight:700"></div>
+      </div>
+    </div>
+    <div id="nd-os" style="font-size:11px;color:var(--txt3);margin-bottom:10px"></div>
+    <div id="nd-alarmlist"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+var graphData = null;
+var svgEl, gEl, zoomBehavior, simulation;
+var selectedServiceId = null;
+
+function getColors() {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    link:       dark ? '#1e2d4a' : '#d0d0d0',
+    txt2:       dark ? '#7888a8' : '#7a7a7a',
+    hostNormal: dark ? '#475569' : '#94a3b8',
+    service:    '#2563EB',
+    hostAlarm:  '#EF4444',
+  };
+}
+
+// Veriyi yükle
+fetch('/api/v1/topology/graph')
+  .then(r => r.json())
+  .then(function(data) {
+    graphData = data;
+    updateStats(data);
+    buildChips(data);
+  })
+  .catch(function(e) {
+    document.getElementById('chip-list').innerHTML =
+      '<span style="color:var(--red);font-size:12px">Yüklenemedi: ' + e.message + '</span>';
+  });
+
+function updateStats(data) {
+  var nodes = data.nodes || [];
+  document.getElementById('stat-services').textContent = nodes.filter(function(n) { return n.type === 'service'; }).length;
+  document.getElementById('stat-hosts').textContent    = nodes.filter(function(n) { return n.type === 'host'; }).length;
+  document.getElementById('stat-alarmed').textContent  = nodes.filter(function(n) { return n.type === 'host' && n.alarm_count > 0; }).length;
+  document.getElementById('stat-alarms').textContent   = nodes.reduce(function(s, n) { return s + (n.alarm_count || 0); }, 0);
+}
+
+function buildChips(data) {
+  // Alarmlı servisleri bul
+  var edges = data.edges || [];
+  var nodes = data.nodes || [];
+  var nodeMap = {};
+  nodes.forEach(function(n) { nodeMap[n.id] = n; });
+
+  // Alarmlı host'larla bağlantılı servisler
+  var alarmedServiceIds = new Set();
+  var alarmedHostIds = new Set(
+    nodes.filter(function(n) { return n.type === 'host' && n.alarm_count > 0; }).map(function(n) { return n.id; })
+  );
+  edges.forEach(function(e) {
+    var src = e.source, tgt = e.target;
+    if (alarmedHostIds.has(src) && nodeMap[tgt] && nodeMap[tgt].type === 'service') alarmedServiceIds.add(tgt);
+    if (alarmedHostIds.has(tgt) && nodeMap[src] && nodeMap[src].type === 'service') alarmedServiceIds.add(src);
+  });
+
+  var alarmedServices = nodes.filter(function(n) { return n.type === 'service' && alarmedServiceIds.has(n.id); });
+  var normalServices  = nodes.filter(function(n) { return n.type === 'service' && !alarmedServiceIds.has(n.id); });
+
+  var html = '';
+  if (alarmedServices.length) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">⚠ Alarmlı</div>';
+    html += alarmedServices.map(function(s) {
+      // Bu servise bağlı alarmlı host sayısı
+      var cnt = edges.filter(function(e) {
+        return (e.source === s.id || e.target === s.id) &&
+               (alarmedHostIds.has(e.source) || alarmedHostIds.has(e.target));
+      }).length;
+      return '<span class="svc-chip" style="background:var(--red-light);color:var(--red);border-color:var(--red)" ' +
+        'onclick="selectService(\'' + s.id + '\',this)">' +
+        (s.label || s.id) + ' <strong>⚠' + cnt + '</strong></span>';
+    }).join('');
+    html += '<br style="margin:6px 0">';
+  }
+  if (normalServices.length) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 6px">Normal</div>';
+    html += normalServices.map(function(s) {
+      return '<span class="svc-chip" style="background:var(--blue-light);color:var(--blue);border-color:var(--blue)" ' +
+        'onclick="selectService(\'' + s.id + '\',this)">' +
+        (s.label || s.id) + '</span>';
+    }).join('');
+  }
+
+  document.getElementById('chip-list').innerHTML = html || '<span style="color:var(--txt3);font-size:12px">Alarmlı servis yok</span>';
+}
+
+function filterChips(q) {
+  document.querySelectorAll('.svc-chip').forEach(function(el) {
+    el.style.display = el.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function selectService(serviceId, chipEl) {
+  selectedServiceId = serviceId;
+  document.querySelectorAll('.svc-chip').forEach(function(el) { el.classList.remove('active'); });
+  if (chipEl) chipEl.classList.add('active');
+
+  // Bu servise ait node'ları filtrele
+  var data = graphData;
+  var edges = data.edges || [];
+  var nodes = data.nodes || [];
+  var nodeMap = {};
+  nodes.forEach(function(n) { nodeMap[n.id] = n; });
+
+  // Servise bağlı host'ları bul
+  var relatedIds = new Set([serviceId]);
+  edges.forEach(function(e) {
+    if (e.source === serviceId || e.target === serviceId) {
+      relatedIds.add(e.source);
+      relatedIds.add(e.target);
+    }
+  });
+
+  var filteredNodes = nodes.filter(function(n) { return relatedIds.has(n.id); });
+  var filteredEdges = edges.filter(function(e) { return relatedIds.has(e.source) && relatedIds.has(e.target); });
+
+  var svcNode = nodeMap[serviceId];
+  document.getElementById('graph-title').textContent = (svcNode ? svcNode.label : serviceId) + ' — Topoloji';
+  document.getElementById('graph-panel').style.display = 'block';
+  document.getElementById('node-detail').style.display = 'none';
+
+  drawGraph({ nodes: filteredNodes, edges: filteredEdges });
+  document.getElementById('graph-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showAll() {
+  if (!graphData) return;
+  document.querySelectorAll('.svc-chip').forEach(function(el) { el.classList.remove('active'); });
+  selectedServiceId = null;
+  document.getElementById('graph-title').textContent = 'Tüm Topoloji';
+  document.getElementById('graph-panel').style.display = 'block';
+  document.getElementById('node-detail').style.display = 'none';
+  drawGraph(graphData);
+  document.getElementById('graph-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function drawGraph(data) {
+  var wrap = document.getElementById('topo-wrap');
+  var w = wrap.clientWidth || 800;
+  var h = wrap.clientHeight || 480;
+  var colors = getColors();
+
+  d3.select('#topo-svg').selectAll('*').remove();
+
+  svgEl = d3.select('#topo-svg');
+  zoomBehavior = d3.zoom().scaleExtent([0.1, 4])
+    .on('zoom', function(event) { gEl.attr('transform', event.transform); });
+  svgEl.call(zoomBehavior);
+  gEl = svgEl.append('g');
+
+  // Arrow
+  svgEl.append('defs').append('marker')
+    .attr('id', 'arr').attr('viewBox', '0 0 10 10')
+    .attr('refX', 22).attr('refY', 5)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto-start-reverse')
+    .append('path').attr('d', 'M2 2L8 5L2 8')
+    .attr('fill', 'none').attr('stroke', colors.link).attr('stroke-width', 1.5);
+
+  var nodes = data.nodes.map(function(n) { return Object.assign({}, n); });
+  var edges = data.edges.map(function(e) { return Object.assign({}, e); });
+
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(function(d) { return d.id; }).distance(140))
+    .force('charge', d3.forceManyBody().strength(-350))
+    .force('center', d3.forceCenter(w / 2, h / 2))
+    .force('collision', d3.forceCollide(45));
+
+  var link = gEl.append('g').selectAll('line')
+    .data(edges).enter().append('line')
+    .attr('stroke', colors.link)
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', 'url(#arr)');
+
+  var node = gEl.append('g').selectAll('g')
+    .data(nodes).enter().append('g')
+    .attr('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', function(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag',  function(event, d) { d.fx = event.x; d.fy = event.y; })
+      .on('end',   function(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+    )
+    .on('click', function(event, d) { showNodeDetail(d); })
+    .on('mouseover', function(event, d) { showTooltip(event, d, colors); })
+    .on('mouseout', function() { document.getElementById('tooltip').style.display = 'none'; });
+
+  // Şekiller
+  node.each(function(d) {
+    var el = d3.select(this);
+    if (d.type === 'service') {
+      el.append('rect')
+        .attr('x', -60).attr('y', -20).attr('width', 120).attr('height', 40).attr('rx', 6)
+        .attr('fill', '#2563EB22').attr('stroke', '#2563EB').attr('stroke-width', 2);
+    } else {
+      var hColor = d.alarm_count > 0 ? '#EF4444' : colors.hostNormal;
+      var pulse = d.alarm_count > 0;
+      el.append('circle').attr('r', 22)
+        .attr('fill', hColor + '33')
+        .attr('stroke', hColor)
+        .attr('stroke-width', d.alarm_count > 0 ? 2.5 : 1.5);
+
+      if (d.alarm_count > 0) {
+        // Alarm badge
+        el.append('circle').attr('cx', 15).attr('cy', -15).attr('r', 10).attr('fill', '#EF4444');
+        el.append('text').attr('x', 15).attr('y', -11)
+          .attr('text-anchor', 'middle').attr('font-size', 9).attr('font-weight', 700).attr('fill', '#fff')
+          .text(d.alarm_count);
+      }
+    }
+  });
+
+  // Label
+  node.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dy', function(d) { return d.type === 'service' ? 5 : 38; })
+    .attr('font-size', function(d) { return d.type === 'service' ? 9 : 8; })
+    .attr('font-weight', function(d) { return d.type === 'service' ? 700 : 400; })
+    .attr('fill', function(d) {
+      if (d.type === 'service') return '#2563EB';
+      return d.alarm_count > 0 ? '#EF4444' : colors.hostNormal;
+    })
+    .attr('font-family', 'monospace')
+    .text(function(d) {
+      var lbl = d.label || d.id;
+      return lbl.length > 22 ? lbl.substring(0, 22) + '…' : lbl;
+    });
+
+  simulation.on('tick', function() {
+    link
+      .attr('x1', function(d) { return d.source.x; })
+      .attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; })
+      .attr('y2', function(d) { return d.target.y; });
+    node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+  });
+
+  setTimeout(function() { fitGraph(w, h, nodes); }, 800);
+}
+
+function fitGraph(w, h, nodes) {
+  if (!nodes.length || !svgEl) return;
+  var xs = nodes.map(function(n) { return n.x || 0; });
+  var ys = nodes.map(function(n) { return n.y || 0; });
+  var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+  var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+  var gw = maxX - minX + 160, gh = maxY - minY + 160;
+  var scale = Math.min(0.9, Math.min(w / gw, h / gh));
+  var tx = (w - gw * scale) / 2 - minX * scale + 80 * scale;
+  var ty = (h - gh * scale) / 2 - minY * scale + 80 * scale;
+  svgEl.transition().duration(600)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function zoom(f) { if (svgEl) svgEl.transition().duration(300).call(zoomBehavior.scaleBy, f); }
+
+function resetZoom() {
+  if (!simulation) return;
+  var wrap = document.getElementById('topo-wrap');
+  fitGraph(wrap.clientWidth, wrap.clientHeight, simulation.nodes());
+}
+
+function highlightNode(q) {
+  if (!gEl) return;
+  gEl.selectAll('g').style('opacity', function(d) {
+    if (!d || !q) return 1;
+    return (d.label || d.id || '').toLowerCase().includes(q.toLowerCase()) ? 1 : 0.15;
+  });
+}
+
+function showTooltip(event, d, colors) {
+  var tip = document.getElementById('tooltip');
+  var c = colors || getColors();
+  var html = '<strong>' + (d.label || d.id) + '</strong>';
+  if (d.type === 'service') {
+    html += '<br><span style="color:' + c.txt2 + '">Business Service</span>';
+  } else {
+    html += '<br>Alarm: <strong style="color:#EF4444">' + (d.alarm_count || 0) + '</strong>';
+    if (d.os) html += '<br>' + (d.os.includes('Windows') ? '🪟' : '🐧') + ' ' + d.os.substring(0, 45) + (d.os.length > 45 ? '…' : '');
+  }
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  tip.style.left = (event.offsetX + 14) + 'px';
+  tip.style.top  = (event.offsetY - 10) + 'px';
+}
+
+function showNodeDetail(d) {
+  var panel = document.getElementById('node-detail');
+  panel.style.display = 'block';
+  document.getElementById('nd-name').textContent = d.label || d.id;
+  document.getElementById('nd-type').textContent = d.type === 'service' ? 'Business Service' : 'Host';
+  document.getElementById('nd-alarmcount').textContent = (d.alarm_count || 0) + ' aktif alarm';
+  document.getElementById('nd-os').textContent = d.os ? (d.os.includes('Windows') ? '🪟 ' : '🐧 ') + d.os : '';
+
+  var alarmList = document.getElementById('nd-alarmlist');
+  if (d.alarmlar && d.alarmlar.length) {
+    alarmList.innerHTML = d.alarmlar.map(function(a) {
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">' +
+        '<span class="badge ' + (a.aktif ? 'badge-red' : 'badge-green') + '" style="flex-shrink:0;font-size:9px">' + (a.aktif ? 'Aktif' : '✓') + '</span>' +
+        '<span style="color:var(--txt2)">' + a.name + '</span>' +
+        '</div>';
+    }).join('');
+  } else {
+    alarmList.innerHTML = d.type === 'service'
+      ? '<div style="font-size:12px;color:var(--green)">✓ Bu servise bağlı aktif alarm yok</div>'
+      : '<div style="font-size:12px;color:var(--green)">✓ Aktif alarm yok</div>';
+  }
+}
+
+// Tema değişince yeniden çiz
+var themeBtn = document.getElementById('theme-toggle-btn');
+if (themeBtn) themeBtn.addEventListener('click', function() {
+  setTimeout(function() {
+    if (document.getElementById('graph-panel').style.display !== 'none') {
+      if (selectedServiceId) {
+        selectService(selectedServiceId, null);
+      } else {
+        showAll();
+      }
+    }
+  }, 100);
+});
+</script>
+{% endblock %}
