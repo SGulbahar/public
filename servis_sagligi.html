@@ -1,0 +1,422 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Servis Sağlığı{% endblock %}
+{% block page_title %}Servis Sağlığı{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-20" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M8 2L1 14h14z"/><line x1="8" y1="6" x2="8" y2="10"/><circle cx="8" cy="12.5" r=".5" fill="var(--red)"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-active" style="color:var(--red)">—</div>
+      <div class="stat-lbl">Aktif Sorun</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--green-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5"><polyline points="2,8 6,12 14,4"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-resolved" style="color:var(--green)">—</div>
+      <div class="stat-lbl">Çözüldü (24s)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-disaster" style="color:var(--red)">—</div>
+      <div class="stat-lbl">DISASTER</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--orange-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--orange)" stroke-width="1.5"><path d="M8 1l7 13H1z"/><line x1="8" y1="7" x2="8" y2="11"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-high" style="color:var(--orange)">—</div>
+      <div class="stat-lbl">HIGH</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTERS ── -->
+<div class="card mb-16">
+  <div class="card-body" style="padding:10px 18px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn active" id="filter-active" onclick="setFilter('active',this)">Aktif</button>
+      <button class="btn" id="filter-all" onclick="setFilter('all',this)">Tümü</button>
+      <button class="btn" id="filter-resolved" onclick="setFilter('resolved',this)">Çözüldü</button>
+      <div class="btn-sep"></div>
+      <button class="btn active" onclick="setSevFilter('all',this)">Tümü</button>
+      <button class="btn" onclick="setSevFilter('DISASTER',this)" style="color:var(--red)">DISASTER</button>
+      <button class="btn" onclick="setSevFilter('HIGH',this)">HIGH</button>
+      <div class="btn-sep"></div>
+      <input type="text" id="svc-search" placeholder="Servis ara..."
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;width:200px"
+        oninput="renderList()">
+      <span style="margin-left:auto;font-size:12px;color:var(--txt2)">
+        <strong id="list-count">—</strong> kayıt
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ── İÇERİK ── -->
+<div class="row">
+
+  <!-- Sol: Liste -->
+  <div class="col-2">
+    <div id="service-list">
+      <div style="text-align:center;padding:40px;color:var(--txt3)">Yükleniyor...</div>
+    </div>
+  </div>
+
+  <!-- Sağ: Detay -->
+  <div class="col" id="detail-panel" style="display:none">
+
+    <!-- Servis başlık -->
+    <div class="card mb-16">
+      <div class="card-body" style="padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div id="detail-severity" style="flex-shrink:0"></div>
+          <div id="detail-status" style="flex-shrink:0"></div>
+        </div>
+        <div id="detail-service" style="font-size:15px;font-weight:700;color:var(--txt);font-family:monospace;margin-bottom:4px"></div>
+        <div id="detail-channel" style="font-size:12px;color:var(--txt3)"></div>
+      </div>
+    </div>
+
+    <!-- Metrikler -->
+    <div class="card mb-16">
+      <div class="card-hd"><div class="card-title">Metrikler</div></div>
+      <div class="card-body" style="padding:14px 18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Anomali Sayısı</div>
+            <div id="detail-anomali" style="font-size:20px;font-weight:700;color:var(--txt)"></div>
+          </div>
+          <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Süre</div>
+            <div id="detail-sure" style="font-size:20px;font-weight:700;color:var(--txt)"></div>
+          </div>
+          <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ort. Hata Oranı</div>
+            <div id="detail-errrate" style="font-size:20px;font-weight:700"></div>
+          </div>
+          <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ort. Yanıt Süresi</div>
+            <div id="detail-elapsed" style="font-size:20px;font-weight:700;color:var(--txt)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kök Neden -->
+    <div class="card mb-16" id="hint-card" style="display:none">
+      <div class="card-hd"><div class="card-title">Kök Neden İpucu</div></div>
+      <div class="card-body">
+        <div id="detail-hint" style="font-size:13px;color:var(--txt2);line-height:1.6;font-family:monospace"></div>
+      </div>
+    </div>
+
+    <!-- Tag + Not -->
+    <div class="card mb-16">
+      <div class="card-hd"><div class="card-title">Etiket & Not</div></div>
+      <div class="card-body">
+        <div id="detail-tags" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+        <div id="detail-notes" style="font-size:13px;color:var(--txt2);margin-bottom:12px;font-style:italic"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="tag-input" placeholder="Etiket ekle..."
+            style="flex:1;padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit">
+          <button class="btn active" onclick="saveTag()">Kaydet</button>
+        </div>
+        <textarea id="note-input" placeholder="Not ekle..."
+          style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;height:70px;resize:vertical"></textarea>
+        <button class="btn active" style="margin-top:6px;width:100%" onclick="saveNote()">Notu Kaydet</button>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card" id="timeline-card" style="display:none">
+      <div class="card-hd"><div class="card-title">Geçmiş Timeline</div></div>
+      <div class="card-body">
+        <div id="timeline-wrap" style="position:relative;height:48px;margin-bottom:6px">
+          <div style="position:absolute;top:20px;left:0;right:0;height:2px;background:var(--border);border-radius:1px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--txt3)" id="timeline-axis"></div>
+        <div id="timeline-list" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var allServices = [];
+var currentService = null;
+var statusFilter = 'active';
+var sevFilter = 'all';
+
+var sevColors = {DISASTER:'var(--red)', HIGH:'var(--orange)', WARNING:'#856404'};
+var sevBadge  = {DISASTER:'badge-red', HIGH:'badge-orange', WARNING:'badge-amber'};
+
+function loadServices() {
+  fetch('/api/v1/service-health')
+    .then(r => r.json())
+    .then(function(data) {
+      allServices = Array.isArray(data) ? data : (data.items || []);
+      updateStats();
+      renderList();
+    })
+    .catch(function(e) {
+      document.getElementById('service-list').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--red);font-size:13px">Yüklenemedi: ' + e.message + '</div>';
+    });
+}
+
+function updateStats() {
+  var active   = allServices.filter(function(s) { return s.status === 'active'; }).length;
+  var resolved = allServices.filter(function(s) { return s.status === 'resolved'; }).length;
+  var disaster = allServices.filter(function(s) { return s.max_severity === 'DISASTER'; }).length;
+  var high     = allServices.filter(function(s) { return s.max_severity === 'HIGH'; }).length;
+  document.getElementById('stat-active').textContent   = active;
+  document.getElementById('stat-resolved').textContent = resolved;
+  document.getElementById('stat-disaster').textContent = disaster;
+  document.getElementById('stat-high').textContent     = high;
+}
+
+function getFiltered() {
+  var q = (document.getElementById('svc-search').value || '').toLowerCase();
+  return allServices.filter(function(s) {
+    if (statusFilter === 'active'   && s.status !== 'active')   return false;
+    if (statusFilter === 'resolved' && s.status !== 'resolved') return false;
+    if (sevFilter !== 'all' && s.max_severity !== sevFilter) return false;
+    if (q && !(s.service||'').toLowerCase().includes(q) && !(s.channel_code||'').includes(q)) return false;
+    return true;
+  });
+}
+
+function renderList() {
+  var filtered = getFiltered();
+  document.getElementById('list-count').textContent = filtered.length;
+
+  if (!filtered.length) {
+    document.getElementById('service-list').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Kayıt bulunamadı</div>';
+    return;
+  }
+
+  var html = filtered.map(function(s) {
+    var isActive = s.status === 'active';
+    var borderColor = isActive ? sevColors[s.max_severity] || 'var(--blue)' : 'var(--green)';
+    var isSelected = currentService && currentService.id === s.id;
+    var sure = s.sure_dk ? (s.sure_dk < 60 ? s.sure_dk.toFixed(0) + ' dk' : (s.sure_dk/60).toFixed(1) + ' sa') : '—';
+
+    return '<div class="card mb-16" style="border-left:3px solid ' + borderColor + ';cursor:pointer' + (isSelected ? ';border-color:var(--blue);box-shadow:0 0 0 2px var(--blue)' : '') + '" onclick="showDetail(' + allServices.indexOf(s) + ')">' +
+      '<div class="card-body" style="padding:12px 16px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span class="badge ' + (sevBadge[s.max_severity] || 'badge-gray') + '">' + (s.max_severity||'—') + '</span>' +
+          (isActive ? '<span class="badge badge-red">Aktif</span>' : '<span class="badge badge-green">Çözüldü</span>') +
+          '<span style="margin-left:auto;font-size:11px;color:var(--txt3)">' + sure + '</span>' +
+        '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--txt);font-family:monospace;margin-bottom:3px">' + (s.service||'—') + '</div>' +
+        '<div style="display:flex;gap:12px;font-size:11px;color:var(--txt3)">' +
+          '<span>Kanal: ' + (s.channel_code||'—') + '</span>' +
+          '<span>' + (s.anomali_count||0) + ' anomali</span>' +
+          (s.avg_error_rate ? '<span style="color:var(--orange)">%' + s.avg_error_rate.toFixed(1) + ' hata</span>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('service-list').innerHTML = html;
+}
+
+function showDetail(idx) {
+  var s = allServices[idx];
+  currentService = s;
+
+  // Paneli göster
+  document.getElementById('detail-panel').style.display = 'block';
+
+  // Badge'ler
+  document.getElementById('detail-severity').innerHTML =
+    '<span class="badge ' + (sevBadge[s.max_severity]||'badge-gray') + '">' + (s.max_severity||'—') + '</span>';
+  document.getElementById('detail-status').innerHTML = s.status === 'active'
+    ? '<span class="badge badge-red">Aktif</span>'
+    : '<span class="badge badge-green">Çözüldü</span>';
+
+  document.getElementById('detail-service').textContent = s.service || '—';
+  document.getElementById('detail-channel').textContent = 'Kanal: ' + (s.channel_code||'—');
+
+  // Metrikler
+  document.getElementById('detail-anomali').textContent = s.anomali_count || 0;
+  var sure = s.sure_dk ? (s.sure_dk < 60 ? s.sure_dk.toFixed(0) + ' dk' : (s.sure_dk/60).toFixed(1) + ' sa') : '—';
+  document.getElementById('detail-sure').textContent = sure;
+
+  var errRate = s.avg_error_rate || 0;
+  var errEl = document.getElementById('detail-errrate');
+  errEl.textContent = '%' + errRate.toFixed(1);
+  errEl.style.color = errRate > 20 ? 'var(--red)' : errRate > 5 ? 'var(--orange)' : 'var(--green)';
+
+  document.getElementById('detail-elapsed').textContent = s.avg_elapsed ? s.avg_elapsed.toFixed(0) + ' ms' : '—';
+
+  // Kök neden ipucu
+  var hintCard = document.getElementById('hint-card');
+  if (s.root_cause_hint) {
+    document.getElementById('detail-hint').textContent = s.root_cause_hint;
+    hintCard.style.display = 'block';
+  } else {
+    hintCard.style.display = 'none';
+  }
+
+  // Tag + Not
+  renderTags(s.tags || []);
+  document.getElementById('detail-notes').textContent = s.notes || '';
+  document.getElementById('note-input').value = s.notes || '';
+  document.getElementById('tag-input').value = '';
+
+  // Timeline yükle
+  loadTimeline(s.id);
+
+  // Listeyi yeniden render et (seçili highlight için)
+  renderList();
+}
+
+function renderTags(tags) {
+  document.getElementById('detail-tags').innerHTML = tags.map(function(t) {
+    return '<span class="badge badge-blue" style="cursor:pointer" onclick="removeTag(\'' + t + '\')">' + t + ' ✕</span>';
+  }).join('');
+}
+
+function saveTag() {
+  if (!currentService) return;
+  var tag = document.getElementById('tag-input').value.trim();
+  if (!tag) return;
+  var tags = (currentService.tags || []).concat([tag]);
+  saveTagNote(tags, currentService.notes);
+}
+
+function removeTag(tag) {
+  if (!currentService) return;
+  var tags = (currentService.tags || []).filter(function(t) { return t !== tag; });
+  saveTagNote(tags, currentService.notes);
+}
+
+function saveNote() {
+  if (!currentService) return;
+  var note = document.getElementById('note-input').value.trim();
+  saveTagNote(currentService.tags || [], note);
+}
+
+function saveTagNote(tags, notes) {
+  fetch('/api/v1/service-health/' + currentService.id + '/tag', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tags: tags, notes: notes})
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    currentService.tags  = tags;
+    currentService.notes = notes;
+    renderTags(tags);
+    document.getElementById('detail-notes').textContent = notes || '';
+    // allServices'i güncelle
+    var idx = allServices.findIndex(function(s) { return s.id === currentService.id; });
+    if (idx >= 0) { allServices[idx].tags = tags; allServices[idx].notes = notes; }
+  })
+  .catch(function(e) { alert('Kayıt başarısız: ' + e.message); });
+}
+
+function loadTimeline(id) {
+  var card = document.getElementById('timeline-card');
+  card.style.display = 'none';
+
+  fetch('/api/v1/service-health/' + id + '/history')
+    .then(r => r.json())
+    .then(function(data) {
+      var items = Array.isArray(data) ? data : (data.history || data.items || []);
+      if (!items.length) return;
+      card.style.display = 'block';
+      renderTimeline(items);
+    })
+    .catch(function() {});
+}
+
+function renderTimeline(items) {
+  var wrap = document.getElementById('timeline-wrap');
+  var axis = document.getElementById('timeline-axis');
+  var list = document.getElementById('timeline-list');
+
+  // Zaman aralığı
+  var dates = items.map(function(i) { return new Date(i.started_at); }).filter(Boolean);
+  if (!dates.length) return;
+  var minT = Math.min.apply(null, dates.map(function(d) { return d.getTime(); }));
+  var maxT = Date.now();
+  var range = maxT - minT || 1;
+
+  // Timeline noktalar
+  var dotsHtml = '<div style="position:absolute;top:20px;left:0;right:0;height:2px;background:var(--border);border-radius:1px"></div>';
+  items.forEach(function(item) {
+    var t = new Date(item.started_at).getTime();
+    var pct = Math.max(2, Math.min(97, ((t - minT) / range * 100)));
+    var isActive = item.status === 'active';
+    var color = sevColors[item.max_severity] || 'var(--blue)';
+    if (isActive) {
+      dotsHtml += '<div style="position:absolute;left:' + pct + '%;top:14px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid ' + color + '" title="' + (item.max_severity||'') + ' — ' + formatDate(item.started_at) + '"></div>';
+    } else {
+      dotsHtml += '<div style="position:absolute;left:' + pct + '%;top:14px;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:' + color + ';border:2px solid var(--card)" title="' + formatDate(item.started_at) + '"></div>';
+    }
+  });
+  wrap.innerHTML = dotsHtml;
+
+  // Axis
+  var startDate = new Date(minT);
+  axis.innerHTML = '<span>' + startDate.toLocaleDateString('tr-TR') + '</span><span>Şimdi</span>';
+
+  // Liste
+  list.innerHTML = items.slice(0, 5).map(function(item) {
+    var isActive = item.status === 'active';
+    var sure = item.sure_dk ? (item.sure_dk < 60 ? item.sure_dk.toFixed(0) + ' dk' : (item.sure_dk/60).toFixed(1) + ' sa') : '—';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">' +
+      '<span class="badge ' + (sevBadge[item.max_severity]||'badge-gray') + '" style="font-size:9px">' + (item.max_severity||'—') + '</span>' +
+      (isActive ? '<span class="badge badge-red" style="font-size:9px">Aktif</span>' : '<span class="badge badge-green" style="font-size:9px">Çözüldü</span>') +
+      '<span style="color:var(--txt2)">' + (item.anomali_count||0) + ' anomali</span>' +
+      '<span style="color:var(--txt3)">' + sure + '</span>' +
+      '<span style="color:var(--txt3);margin-left:auto">' + formatDate(item.started_at) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function setFilter(f, btn) {
+  statusFilter = f;
+  document.querySelectorAll('#filter-active,#filter-all,#filter-resolved').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderList();
+}
+
+function setSevFilter(f, btn) {
+  sevFilter = f;
+  renderList();
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  var d = new Date(dateStr);
+  return d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit'});
+}
+
+loadServices();
+</script>
+{% endblock %}
