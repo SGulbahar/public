@@ -1,0 +1,439 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Servis Topolojisi{% endblock %}
+{% block page_title %}Servis Topolojisi{% endblock %}
+
+{% block extra_css %}
+<style>
+.topo-wrap { position: relative; width: 100%; height: calc(100vh - 220px); min-height: 500px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); overflow: hidden; }
+.topo-controls { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+.topo-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); background: var(--card); color: var(--txt2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.topo-btn:hover { border-color: var(--blue); color: var(--blue); }
+.topo-legend { position: absolute; bottom: 10px; left: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--txt2); z-index: 10; }
+.topo-legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.topo-legend-item:last-child { margin-bottom: 0; }
+.node-tooltip { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--txt); pointer-events: none; z-index: 100; display: none; max-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.search-box { position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 6px; }
+.search-input { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--txt); font-size: 12px; font-family: inherit; width: 200px; }
+.filter-btns { position: absolute; top: 46px; left: 10px; z-index: 10; display: flex; gap: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-16" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--blue-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><circle cx="2" cy="3" r="1.5"/><circle cx="14" cy="3" r="1.5"/><circle cx="8" cy="14" r="1.5"/><line x1="3.3" y1="4.2" x2="6.2" y2="6.2"/><line x1="12.7" y1="4.2" x2="9.8" y2="6.2"/><line x1="8" y1="10.5" x2="8" y2="12.5"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-services" style="color:var(--blue)">—</div>
+      <div class="stat-lbl">Business Service</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0f0f0">
+      <svg viewBox="0 0 16 16" fill="none" stroke="#666" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><line x1="4" y1="7" x2="12" y2="7"/><line x1="4" y1="10" x2="9" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-hosts">—</div>
+      <div class="stat-lbl">Host</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M8 2L1 14h14z"/><line x1="8" y1="6" x2="8" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-alarmed" style="color:var(--red)">—</div>
+      <div class="stat-lbl">Alarmlı Host</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--orange-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--orange)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-alarms" style="color:var(--orange)">—</div>
+      <div class="stat-lbl">Aktif Alarm</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GRAPH ── -->
+<div class="card">
+  <div class="card-hd">
+    <div class="card-title">Neo4j Topoloji Grafiği</div>
+    <div class="card-actions">
+      <button class="btn active" id="btn-alarm" onclick="setView('alarm',this)">Alarmlı Servisler</button>
+      <button class="btn" id="btn-all" onclick="setView('all',this)">Tümü</button>
+      <button class="btn" onclick="resetZoom()">↺ Sıfırla</button>
+    </div>
+  </div>
+  <div style="position:relative">
+    <div class="topo-wrap" id="topo-wrap">
+      <div class="search-box">
+        <input class="search-input" type="text" id="node-search" placeholder="Node ara..." oninput="searchNode(this.value)">
+        <button class="topo-btn" onclick="clearSearch()">✕</button>
+      </div>
+      <div class="filter-btns">
+        <button class="btn active" onclick="setNodeFilter('all',this)">Tümü</button>
+        <button class="btn" onclick="setNodeFilter('service',this)">Servisler</button>
+        <button class="btn" onclick="setNodeFilter('host',this)" style="color:var(--red)">Alarmlı Hostlar</button>
+      </div>
+      <div class="topo-controls">
+        <button class="topo-btn" onclick="zoom(1.2)" title="Yakınlaştır">+</button>
+        <button class="topo-btn" onclick="zoom(0.8)" title="Uzaklaştır">−</button>
+        <button class="topo-btn" onclick="resetZoom()" title="Sıfırla">⊙</button>
+      </div>
+      <div class="topo-legend">
+        <div class="topo-legend-item"><div style="width:14px;height:14px;border-radius:3px;background:#2563EB"></div>Business Service</div>
+        <div class="topo-legend-item"><div style="width:12px;height:12px;border-radius:50%;background:#EF4444"></div>Alarmlı Host</div>
+        <div class="topo-legend-item"><div style="width:12px;height:12px;border-radius:50%;background:#64748b"></div>Normal Host</div>
+      </div>
+      <svg id="topo-svg" style="width:100%;height:100%"></svg>
+      <div class="node-tooltip" id="tooltip"></div>
+      <div id="topo-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:13px">
+        Yükleniyor...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── NODE DETAY PANEL ── -->
+<div id="node-detail" style="display:none;margin-top:16px">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title" id="nd-title">Node Detayı</div>
+      <button class="btn" onclick="document.getElementById('node-detail').style.display='none'">✕ Kapat</button>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Tip</div>
+          <div id="nd-type" style="font-size:13px;color:var(--txt2)"></div>
+        </div>
+        <div class="col">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">İşletim Sistemi</div>
+          <div id="nd-os" style="font-size:13px;color:var(--txt2)"></div>
+        </div>
+        <div class="col">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Aktif Alarm</div>
+          <div id="nd-alarms" style="font-size:13px;color:var(--red)"></div>
+        </div>
+      </div>
+      <div id="nd-alarm-list" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+var graphData = null;
+var simulation = null;
+var svgEl, gEl, zoomBehavior;
+var currentView = 'alarm';
+var nodeFilter = 'all';
+
+// Tema renkleri
+function getColors() {
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    bg:         isDark ? '#080b14' : '#f5f6fa',
+    card:       isDark ? '#0d1120' : '#ffffff',
+    border:     isDark ? '#1a2338' : '#e8e8e8',
+    txt:        isDark ? '#d4dff5' : '#2c2e3e',
+    txt2:       isDark ? '#7888a8' : '#7a7a7a',
+    link:       isDark ? '#1a2338' : '#d0d0d0',
+    service:    '#2563EB',
+    hostAlarm:  '#EF4444',
+    hostNormal: isDark ? '#475569' : '#94a3b8',
+  };
+}
+
+function loadGraph() {
+  fetch('/api/v1/topology/graph')
+    .then(r => r.json())
+    .then(function(data) {
+      graphData = data;
+      updateStats(data);
+      document.getElementById('topo-loading').style.display = 'none';
+      drawGraph(filterData(data));
+    })
+    .catch(function(e) {
+      document.getElementById('topo-loading').innerHTML =
+        '<span style="color:var(--red)">Topoloji yüklenemedi: ' + e.message + '</span>';
+    });
+}
+
+function updateStats(data) {
+  var nodes = data.nodes || [];
+  var services = nodes.filter(function(n) { return n.type === 'service'; }).length;
+  var hosts    = nodes.filter(function(n) { return n.type === 'host'; }).length;
+  var alarmed  = nodes.filter(function(n) { return n.type === 'host' && n.alarm_count > 0; }).length;
+  var alarms   = nodes.reduce(function(sum, n) { return sum + (n.alarm_count || 0); }, 0);
+  document.getElementById('stat-services').textContent = services;
+  document.getElementById('stat-hosts').textContent    = hosts;
+  document.getElementById('stat-alarmed').textContent  = alarmed;
+  document.getElementById('stat-alarms').textContent   = alarms;
+}
+
+function filterData(data) {
+  var nodes = data.nodes || [];
+  var edges = data.edges || [];
+
+  if (currentView === 'alarm') {
+    // Sadece alarmlı hostlar ve bağlı servisler
+    var alarmedHostIds = new Set(
+      nodes.filter(function(n) { return n.type === 'host' && n.alarm_count > 0; }).map(function(n) { return n.id; })
+    );
+    var relatedServiceIds = new Set();
+    edges.forEach(function(e) {
+      if (alarmedHostIds.has(e.source)) relatedServiceIds.add(e.target);
+      if (alarmedHostIds.has(e.target)) relatedServiceIds.add(e.source);
+    });
+    nodes = nodes.filter(function(n) {
+      return alarmedHostIds.has(n.id) || relatedServiceIds.has(n.id);
+    });
+    var nodeIds = new Set(nodes.map(function(n) { return n.id; }));
+    edges = edges.filter(function(e) { return nodeIds.has(e.source) && nodeIds.has(e.target); });
+  }
+
+  return { nodes: nodes, edges: edges };
+}
+
+function drawGraph(data) {
+  var wrap = document.getElementById('topo-wrap');
+  var w = wrap.clientWidth;
+  var h = wrap.clientHeight;
+  var colors = getColors();
+
+  d3.select('#topo-svg').selectAll('*').remove();
+
+  svgEl = d3.select('#topo-svg');
+  zoomBehavior = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on('zoom', function(event) { gEl.attr('transform', event.transform); });
+  svgEl.call(zoomBehavior);
+
+  gEl = svgEl.append('g');
+
+  // Arrow marker
+  svgEl.append('defs').append('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 0 10 10')
+    .attr('refX', 20).attr('refY', 5)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto-start-reverse')
+    .append('path')
+    .attr('d', 'M2 2L8 5L2 8')
+    .attr('fill', 'none')
+    .attr('stroke', colors.link)
+    .attr('stroke-width', 1.5);
+
+  // Nodes klonu (D3 simulation için)
+  var nodes = data.nodes.map(function(n) { return Object.assign({}, n); });
+  var edges = data.edges.map(function(e) { return Object.assign({}, e); });
+
+  // Simulation
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(function(d) { return d.id; }).distance(120))
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(w / 2, h / 2))
+    .force('collision', d3.forceCollide(40));
+
+  // Linkler
+  var link = gEl.append('g').selectAll('line')
+    .data(edges).enter().append('line')
+    .attr('stroke', colors.link)
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', 'url(#arrow)');
+
+  // Node grupları
+  var node = gEl.append('g').selectAll('g')
+    .data(nodes).enter().append('g')
+    .attr('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', function(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on('drag', function(event, d) { d.fx = event.x; d.fy = event.y; })
+      .on('end', function(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+      })
+    )
+    .on('click', function(event, d) { showNodeDetail(d); })
+    .on('mouseover', function(event, d) { showTooltip(event, d); })
+    .on('mouseout', hideTooltip);
+
+  // Servis = dikdörtgen, Host = daire
+  node.each(function(d) {
+    var el = d3.select(this);
+    if (d.type === 'service') {
+      el.append('rect')
+        .attr('x', -55).attr('y', -18)
+        .attr('width', 110).attr('height', 36)
+        .attr('rx', 5)
+        .attr('fill', colors.service + '22')
+        .attr('stroke', colors.service)
+        .attr('stroke-width', 1.5);
+    } else {
+      var hColor = d.alarm_count > 0 ? colors.hostAlarm : colors.hostNormal;
+      el.append('circle')
+        .attr('r', 20)
+        .attr('fill', hColor + '33')
+        .attr('stroke', hColor)
+        .attr('stroke-width', d.alarm_count > 0 ? 2.5 : 1.5);
+
+      // Alarm sayısı badge
+      if (d.alarm_count > 0) {
+        el.append('circle').attr('cx', 14).attr('cy', -14).attr('r', 9).attr('fill', colors.hostAlarm);
+        el.append('text').attr('x', 14).attr('y', -10)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', 9).attr('font-weight', 700).attr('fill', '#fff')
+          .text(d.alarm_count);
+      }
+    }
+  });
+
+  // Label
+  node.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => d.type === 'service' ? 5 : 35)
+    .attr('font-size', d => d.type === 'service' ? 9 : 8)
+    .attr('fill', d => d.type === 'service' ? colors.service : (d.alarm_count > 0 ? colors.hostAlarm : colors.txt2))
+    .attr('font-family', 'monospace')
+    .text(function(d) {
+      var lbl = d.label || d.id;
+      return lbl.length > 20 ? lbl.substring(0, 20) + '…' : lbl;
+    });
+
+  // Simulation tick
+  simulation.on('tick', function() {
+    link
+      .attr('x1', function(d) { return d.source.x; })
+      .attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; })
+      .attr('y2', function(d) { return d.target.y; });
+    node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+  });
+
+  // İlk fit
+  setTimeout(function() { fitGraph(w, h, nodes); }, 800);
+}
+
+function fitGraph(w, h, nodes) {
+  if (!nodes.length || !svgEl) return;
+  var xs = nodes.map(function(n) { return n.x || 0; });
+  var ys = nodes.map(function(n) { return n.y || 0; });
+  var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+  var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+  var gw = maxX - minX + 120, gh = maxY - minY + 120;
+  var scale = Math.min(0.9, Math.min(w / gw, h / gh));
+  var tx = (w - gw * scale) / 2 - minX * scale + 60 * scale;
+  var ty = (h - gh * scale) / 2 - minY * scale + 60 * scale;
+  svgEl.transition().duration(600)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function zoom(factor) {
+  svgEl.transition().duration(300).call(zoomBehavior.scaleBy, factor);
+}
+
+function resetZoom() {
+  if (!graphData) return;
+  var wrap = document.getElementById('topo-wrap');
+  fitGraph(wrap.clientWidth, wrap.clientHeight, filterData(graphData).nodes);
+}
+
+function setView(v, btn) {
+  currentView = v;
+  document.querySelectorAll('#btn-alarm,#btn-all').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  if (graphData) {
+    document.getElementById('topo-loading').style.display = 'none';
+    drawGraph(filterData(graphData));
+  }
+}
+
+function setNodeFilter(f, btn) {
+  nodeFilter = f;
+  document.querySelectorAll('.filter-btns .btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  searchNode(document.getElementById('node-search').value);
+}
+
+function searchNode(q) {
+  if (!gEl) return;
+  gEl.selectAll('g').style('opacity', function(d) {
+    if (!d) return 1;
+    if (nodeFilter === 'service' && d.type !== 'service') return 0.15;
+    if (nodeFilter === 'host' && (d.type !== 'host' || d.alarm_count === 0)) return 0.15;
+    if (q && !(d.label||'').toLowerCase().includes(q.toLowerCase())) return 0.15;
+    return 1;
+  });
+}
+
+function clearSearch() {
+  document.getElementById('node-search').value = '';
+  searchNode('');
+}
+
+function showTooltip(event, d) {
+  var tip = document.getElementById('tooltip');
+  var content = '<strong>' + (d.label || d.id) + '</strong>';
+  if (d.type === 'host') {
+    content += '<br>Alarm: <span style="color:var(--red)">' + (d.alarm_count || 0) + '</span>';
+    if (d.os) content += '<br>' + (d.os.includes('Windows') ? '🪟' : '🐧') + ' ' + d.os.substring(0, 40) + '…';
+  } else {
+    content += '<br>Business Service';
+  }
+  tip.innerHTML = content;
+  tip.style.display = 'block';
+  tip.style.left = (event.offsetX + 12) + 'px';
+  tip.style.top  = (event.offsetY - 10) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+function showNodeDetail(d) {
+  var panel = document.getElementById('node-detail');
+  panel.style.display = 'block';
+  document.getElementById('nd-title').textContent = d.label || d.id;
+  document.getElementById('nd-type').textContent  = d.type === 'service' ? 'Business Service' : 'Host';
+  document.getElementById('nd-os').textContent    = d.os || '—';
+  document.getElementById('nd-alarms').textContent = (d.alarm_count || 0) + ' aktif alarm';
+
+  var alarmList = document.getElementById('nd-alarm-list');
+  if (d.alarmlar && d.alarmlar.length) {
+    alarmList.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Alarmlar</div>' +
+      d.alarmlar.map(function(a) {
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+          '<span class="badge ' + (a.aktif ? 'badge-red' : 'badge-green') + '" style="flex-shrink:0">' + (a.aktif ? 'Aktif' : 'Çözüldü') + '</span>' +
+          '<span style="font-size:12px;color:var(--txt2)">' + a.name + '</span>' +
+          '</div>';
+      }).join('');
+  } else {
+    alarmList.innerHTML = '';
+  }
+
+  // Sayfayı aşağı kaydır
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Tema değişince yeniden çiz
+document.getElementById('theme-toggle-btn') && document.getElementById('theme-toggle-btn').addEventListener('click', function() {
+  setTimeout(function() { if (graphData) drawGraph(filterData(graphData)); }, 100);
+});
+
+loadGraph();
+</script>
+{% endblock %}
