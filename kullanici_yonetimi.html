@@ -1,0 +1,335 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Kullanıcı Yönetimi{% endblock %}
+{% block page_title %}Kullanıcı Yönetimi{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-20" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--blue-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-2.8 2.2-5 5-5"/><circle cx="12" cy="10" r="3"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="10" y1="10" x2="14" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" style="color:var(--blue)">{{ stats.total }}</div>
+      <div class="stat-lbl">Toplam Kullanıcı</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--green-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" style="color:var(--green)">{{ stats.active }}</div>
+      <div class="stat-lbl">Aktif</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--purple-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--purple)" stroke-width="1.5"><path d="M8 1l2 5h5l-4 3 1.5 5L8 11l-4.5 3L5 9 1 6h5z"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" style="color:var(--purple)">{{ stats.ldap }}</div>
+      <div class="stat-lbl">LDAP</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--orange-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--orange)" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" style="color:var(--orange)">{{ stats.local }}</div>
+      <div class="stat-lbl">Yerel</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOOLBAR ── -->
+<div class="card mb-16">
+  <div class="card-body" style="padding:10px 18px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn active" onclick="setFilter('all',this)">Tümü</button>
+      <button class="btn" onclick="setFilter('active',this)">Aktif</button>
+      <button class="btn" onclick="setFilter('inactive',this)">Pasif</button>
+      <div class="btn-sep"></div>
+      <button class="btn" onclick="setFilter('ldap',this)">LDAP</button>
+      <button class="btn" onclick="setFilter('local',this)">Yerel</button>
+      <div class="btn-sep"></div>
+      <input type="text" id="user-search" placeholder="Kullanıcı ara..."
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;width:180px"
+        oninput="searchUsers(this.value)">
+      <span style="margin-left:auto;font-size:12px;color:var(--txt2)">
+        <strong id="user-count">{{ users | length }}</strong> kullanıcı
+      </span>
+      <button class="btn active" onclick="openNewUser()">+ Yeni Kullanıcı</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABLO ── -->
+<div class="card">
+  <div class="table-wrap">
+    <table id="user-table">
+      <thead>
+        <tr>
+          <th>Kullanıcı Adı</th>
+          <th>E-posta</th>
+          <th>Roller</th>
+          <th>Kaynak</th>
+          <th>Durum</th>
+          <th>Son Giriş</th>
+          <th>Oluşturulma</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="user-tbody">
+        {% for u in users %}
+        <tr data-active="{{ u.is_active | lower }}" data-source="{{ u.auth_source }}">
+          <td class="td-primary">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">
+                {{ u.username[0].upper() }}
+              </div>
+              {{ u.username }}
+            </div>
+          </td>
+          <td class="td-mono">{{ u.email or '—' }}</td>
+          <td>
+            {% for role in u.roles %}
+              <span class="badge badge-{% if role == 'Admin' %}red{% elif role == 'SRE Lead' %}orange{% elif role == 'NOC Analyst' %}blue{% else %}gray{% endif %}" style="margin-right:3px">
+                {{ role }}
+              </span>
+            {% else %}
+              <span style="color:var(--txt3);font-size:12px">—</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% if u.auth_source == 'ldap' %}
+              <span class="badge badge-purple">LDAP</span>
+            {% else %}
+              <span class="badge badge-blue">Yerel</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.is_active %}
+              <span class="badge badge-green">Aktif</span>
+            {% else %}
+              <span class="badge badge-gray">Pasif</span>
+            {% endif %}
+          </td>
+          <td class="td-mono">{{ u.last_login | strftime('%d.%m.%Y %H:%M') if u.last_login else '—' }}</td>
+          <td class="td-mono">{{ u.created_at | strftime('%d.%m.%Y') if u.created_at else '—' }}</td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button class="btn" onclick="openEdit({{ u.id }})">✏️</button>
+              <button class="btn" onclick="toggleActive({{ u.id }}, {{ u.is_active | lower }})"
+                style="color:{{ 'var(--red)' if u.is_active else 'var(--green)' }}">
+                {{ '⊘' if u.is_active else '✓' }}
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── KULLANICI MODAL ── -->
+<div id="user-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--card);border-radius:8px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin-bottom:40px">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center">
+      <div id="modal-title" style="font-size:15px;font-weight:700;color:var(--txt);flex:1"></div>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px">✕</button>
+    </div>
+    <div style="padding:20px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Kullanıcı Adı</label>
+          <input id="f-username" type="text" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">E-posta</label>
+          <input id="f-email" type="email" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+        </div>
+      </div>
+
+      <div id="password-field" style="margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Parola <span id="pw-hint" style="color:var(--txt3)">(değiştirmek için doldurun)</span></label>
+        <input id="f-password" type="password" placeholder="••••••••" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:6px;font-weight:600">Roller</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          {% for role in roles %}
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--txt2);cursor:pointer">
+            <input type="checkbox" class="role-cb" value="{{ role.id }}" style="cursor:pointer">
+            {{ role.name }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--bg);border-radius:6px">
+        <label style="font-size:13px;color:var(--txt);flex:1;font-weight:600">Hesap Aktif</label>
+        <input type="checkbox" id="f-active" checked style="width:18px;height:18px;cursor:pointer">
+      </div>
+
+      <div id="modal-error" style="display:none;background:var(--red-light);border:1px solid var(--red);border-radius:4px;padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:12px"></div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn active" onclick="saveUser()" style="flex:1">💾 Kaydet</button>
+        <button class="btn" onclick="closeModal()">İptal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var currentUserId = null;
+var filterMode = 'all';
+
+function setFilter(f, btn) {
+  filterMode = f;
+  document.querySelectorAll('.card-body .btn').forEach(function(b) {
+    if (['Tümü','Aktif','Pasif','LDAP','Yerel'].includes(b.textContent.trim())) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  applyFilter();
+}
+
+function applyFilter() {
+  var q = document.getElementById('user-search').value.toLowerCase();
+  var rows = document.querySelectorAll('#user-tbody tr');
+  var count = 0;
+  rows.forEach(function(r) {
+    var active = r.dataset.active === 'true';
+    var source = r.dataset.source;
+    var txt = r.textContent.toLowerCase();
+
+    var show = true;
+    if (filterMode === 'active'   && !active)          show = false;
+    if (filterMode === 'inactive' && active)            show = false;
+    if (filterMode === 'ldap'     && source !== 'ldap') show = false;
+    if (filterMode === 'local'    && source !== 'local') show = false;
+    if (q && !txt.includes(q)) show = false;
+
+    r.style.display = show ? '' : 'none';
+    if (show) count++;
+  });
+  document.getElementById('user-count').textContent = count;
+}
+
+function searchUsers(q) { applyFilter(); }
+
+function openNewUser() {
+  currentUserId = null;
+  document.getElementById('modal-title').textContent = '+ Yeni Kullanıcı';
+  document.getElementById('f-username').value = '';
+  document.getElementById('f-email').value = '';
+  document.getElementById('f-password').value = '';
+  document.getElementById('f-active').checked = true;
+  document.getElementById('pw-hint').style.display = 'none';
+  document.querySelectorAll('.role-cb').forEach(function(cb) { cb.checked = false; });
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('user-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function openEdit(userId) {
+  currentUserId = userId;
+  document.getElementById('modal-title').textContent = '✏️ Kullanıcı Düzenle';
+  document.getElementById('pw-hint').style.display = 'inline';
+  document.getElementById('f-password').value = '';
+  document.getElementById('modal-error').style.display = 'none';
+
+  fetch('/api/v1/users/' + userId, {
+    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '') }
+  })
+  .then(r => r.json())
+  .then(function(u) {
+    document.getElementById('f-username').value = u.username || '';
+    document.getElementById('f-email').value    = u.email    || '';
+    document.getElementById('f-active').checked = u.is_active;
+    var roleIds = (u.roles || []).map(function(r) { return String(r.id || r); });
+    document.querySelectorAll('.role-cb').forEach(function(cb) {
+      cb.checked = roleIds.includes(cb.value);
+    });
+  })
+  .catch(function() {});
+
+  document.getElementById('user-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function saveUser() {
+  var username = document.getElementById('f-username').value.trim();
+  var email    = document.getElementById('f-email').value.trim();
+  var password = document.getElementById('f-password').value;
+  var active   = document.getElementById('f-active').checked;
+  var roleIds  = Array.from(document.querySelectorAll('.role-cb:checked')).map(function(cb) { return parseInt(cb.value); });
+
+  if (!username) { showModalError('Kullanıcı adı gerekli'); return; }
+
+  var body = { username: username, email: email, is_active: active, role_ids: roleIds };
+  if (password) body.password = password;
+
+  var url    = currentUserId ? '/api/v1/users/' + currentUserId : '/api/v1/users';
+  var method = currentUserId ? 'PUT' : 'POST';
+
+  fetch(url, {
+    method: method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '')
+    },
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    if (d.detail) { showModalError(d.detail); return; }
+    closeModal();
+    location.reload();
+  })
+  .catch(function(e) { showModalError(e.message); });
+}
+
+function toggleActive(userId, isActive) {
+  var action = isActive ? 'deaktive' : 'aktive';
+  if (!confirm((isActive ? 'Deaktive' : 'Aktive') + ' etmek istiyor musunuz?')) return;
+
+  fetch('/api/v1/users/' + userId, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '')
+    },
+    body: JSON.stringify({ is_active: !isActive })
+  })
+  .then(r => r.json())
+  .then(function() { location.reload(); })
+  .catch(function(e) { alert('Hata: ' + e.message); });
+}
+
+function showModalError(msg) {
+  var el = document.getElementById('modal-error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function closeModal() {
+  document.getElementById('user-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  currentUserId = null;
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.getElementById('user-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+</script>
+{% endblock %}
