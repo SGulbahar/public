@@ -1,0 +1,354 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Incident Merkezi{% endblock %}
+{% block page_title %}Incident Merkezi{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-20" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/><circle cx="8" cy="11.5" r=".6" fill="var(--red)"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-open" style="color:var(--red)">{{ stats.open }}</div>
+      <div class="stat-lbl">Açık Incident</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--green-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5"><polyline points="2,8 6,12 14,4"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-resolved" style="color:var(--green)">{{ stats.resolved }}</div>
+      <div class="stat-lbl">Çözüldü (7 gün)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M8 2L1 14h14z"/><line x1="8" y1="6" x2="8" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-disaster" style="color:var(--red)">{{ stats.disaster }}</div>
+      <div class="stat-lbl">DISASTER</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--purple-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--purple)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-zabbix" style="color:var(--purple)">{{ stats.zabbix_source }}</div>
+      <div class="stat-lbl">Zabbix Kaynaklı</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTERS ── -->
+<div class="card mb-16">
+  <div class="card-body" style="padding:10px 18px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--txt2);font-weight:600">Durum:</span>
+      <a href="?status=open&severity={{ severity_filter }}" class="btn {{ 'active' if status_filter == 'open' }}">Açık ({{ stats.open }})</a>
+      <a href="?status=resolved&severity={{ severity_filter }}" class="btn {{ 'active' if status_filter == 'resolved' }}">Çözüldü</a>
+      <a href="?status=all&severity={{ severity_filter }}" class="btn {{ 'active' if status_filter == 'all' }}">Tümü</a>
+      <div class="btn-sep"></div>
+      <span style="font-size:12px;color:var(--txt2);font-weight:600">Seviye:</span>
+      <a href="?status={{ status_filter }}&severity=" class="btn {{ 'active' if not severity_filter }}">Tümü</a>
+      <a href="?status={{ status_filter }}&severity=DISASTER" class="btn {{ 'active' if severity_filter == 'DISASTER' }}" style="color:var(--red)">DISASTER</a>
+      <a href="?status={{ status_filter }}&severity=HIGH" class="btn {{ 'active' if severity_filter == 'HIGH' }}">HIGH</a>
+      <div class="btn-sep"></div>
+      <input type="text" id="inc-search" placeholder="Servis veya özet ara..."
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;width:200px"
+        oninput="searchIncidents(this.value)">
+      <span style="margin-left:auto;font-size:12px;color:var(--txt2)">
+        <strong>{{ total_count }}</strong> kayıt
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABLO ── -->
+<div class="card">
+  <div class="card-hd">
+    <div class="card-title">Incident Listesi — Satıra tıkla detay için</div>
+  </div>
+  <div class="table-wrap">
+    <table id="inc-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tespit</th>
+          <th>Seviye</th>
+          <th>Durum</th>
+          <th>Kök Neden</th>
+          <th>Etkilenen</th>
+          <th>Kaynak</th>
+          <th>Özet</th>
+          <th>Süre</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inc in incidents %}
+        <tr style="cursor:pointer" onclick="showDetail({{ loop.index0 }})">
+          <td style="color:var(--blue);font-weight:700;font-family:monospace">INC-{{ inc.id }}</td>
+          <td class="td-mono">{{ inc.detected_at | strftime('%d.%m %H:%M') }}</td>
+          <td>
+            <span class="badge badge-{% if inc.severity == 'DISASTER' %}red{% elif inc.severity == 'HIGH' %}orange{% else %}amber{% endif %}">
+              {{ inc.severity }}
+            </span>
+          </td>
+          <td>
+            {% if inc.status == 'open' %}
+              <span class="badge badge-red">Açık</span>
+            {% elif inc.status == 'resolved' %}
+              <span class="badge badge-green">Çözüldü</span>
+            {% else %}
+              <span class="badge badge-gray">{{ inc.status }}</span>
+            {% endif %}
+          </td>
+          <td class="td-mono" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ inc.root_cause_svc }}">
+            {{ inc.root_cause_svc or '—' }}
+          </td>
+          <td style="{% if inc.affected_count > 5 %}color:var(--red);{% elif inc.affected_count > 2 %}color:var(--orange);{% endif %}font-weight:600">
+            {{ inc.affected_count or 0 }}
+          </td>
+          <td>
+            {% if inc.source == 'both' %}
+              <span class="badge badge-orange">Zabbix+Log</span>
+            {% elif inc.source == 'zabbix' %}
+              <span class="badge badge-purple">Zabbix</span>
+            {% else %}
+              <span class="badge badge-blue">Log</span>
+            {% endif %}
+          </td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--txt2)" title="{{ inc.summary }}">
+            {{ inc.summary or '—' }}
+          </td>
+          <td style="font-size:11px;color:var(--txt3);white-space:nowrap">{{ inc.elapsed }}</td>
+          <td onclick="event.stopPropagation()">
+            <button class="btn" onclick="showLLM({{ loop.index0 }})">LLM →</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align:center;padding:30px;color:var(--txt3)">
+            Bu filtreye uygun incident bulunamadı
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--txt2)">Sayfa {{ current_page }} / {{ total_pages }}</div>
+    <div style="display:flex;gap:4px">
+      {% if current_page > 1 %}
+        <a href="?page={{ current_page-1 }}&status={{ status_filter }}&severity={{ severity_filter }}" class="btn">← Önceki</a>
+      {% endif %}
+      {% if current_page < total_pages %}
+        <a href="?page={{ current_page+1 }}&status={{ status_filter }}&severity={{ severity_filter }}" class="btn">Sonraki →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── DETAY MODAL ── -->
+<div id="inc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--card);border-radius:8px;width:700px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin-bottom:40px">
+
+    <!-- Header -->
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="flex:1">
+        <div id="modal-id" style="font-size:16px;font-weight:800;color:var(--blue);font-family:monospace"></div>
+        <div id="modal-time" style="font-size:11px;color:var(--txt3);margin-top:2px"></div>
+      </div>
+      <div id="modal-severity-badge"></div>
+      <div id="modal-status-badge"></div>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px">✕</button>
+    </div>
+
+    <div style="padding:20px">
+
+      <!-- Bilgi grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Kök Neden</div>
+          <div id="modal-root" style="font-size:13px;font-weight:600;color:var(--txt);font-family:monospace"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Etkilenen Servis</div>
+          <div id="modal-affected" style="font-size:20px;font-weight:700;color:var(--txt)"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Kaynak</div>
+          <div id="modal-source"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Zabbix Alarm</div>
+          <div id="modal-zabbix-count" style="font-size:13px;color:var(--txt)"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Altyapı Kök</div>
+          <div id="modal-infra-root" style="font-size:12px;color:var(--txt2);font-family:monospace"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Süre</div>
+          <div id="modal-elapsed" style="font-size:13px;color:var(--txt)"></div>
+        </div>
+      </div>
+
+      <!-- Özet -->
+      <div id="modal-summary-wrap" style="background:var(--bg);border-radius:6px;padding:12px 14px;margin-bottom:16px;border-left:3px solid var(--border)">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Özet</div>
+        <div id="modal-summary" style="font-size:13px;color:var(--txt2);line-height:1.5"></div>
+      </div>
+
+      <!-- LLM Analizi -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em">LLM Root Cause Analysis</div>
+          <button id="modal-llm-btn" class="btn" style="background:var(--blue);color:#fff;border-color:var(--blue)" onclick="loadLLM()">
+            🤖 Analiz Yükle
+          </button>
+        </div>
+        <div id="modal-llm" style="background:var(--bg);border-radius:6px;padding:14px;font-size:12px;color:var(--txt2);line-height:1.7;min-height:60px;white-space:pre-wrap">
+          LLM analizini görmek için "Analiz Yükle" butonuna tıklayın.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var incidents = [
+  {% for inc in incidents %}
+  {
+    id: {{ inc.id }},
+    detected_at: {{ inc.detected_at | strftime('%d.%m.%Y %H:%M') | tojson }},
+    resolved_at: {{ (inc.resolved_at | strftime('%d.%m.%Y %H:%M') if inc.resolved_at else '') | tojson }},
+    severity: {{ inc.severity | tojson }},
+    status: {{ inc.status | tojson }},
+    root_cause_svc: {{ (inc.root_cause_svc or '') | tojson }},
+    root_cause_channel: {{ (inc.root_cause_channel or '') | tojson }},
+    affected_count: {{ inc.affected_count or 0 }},
+    source: {{ (inc.source or 'log') | tojson }},
+    summary: {{ (inc.summary or '') | tojson }},
+    ai_analysis: {{ (inc.ai_analysis or '') | tojson }},
+    zabbix_event_count: {{ inc.zabbix_event_count or 0 }},
+    infrastructure_root: {{ (inc.infrastructure_root or '') | tojson }},
+    elapsed: {{ inc.elapsed | tojson }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+
+var currentInc = null;
+
+var sevBadge = {DISASTER:'badge-red', HIGH:'badge-orange', WARNING:'badge-amber'};
+
+function showDetail(idx) {
+  var inc = incidents[idx];
+  if (!inc) return;
+  currentInc = inc;
+
+  document.getElementById('modal-id').textContent = 'INC-' + inc.id;
+  document.getElementById('modal-time').textContent = inc.detected_at + (inc.resolved_at ? ' → ' + inc.resolved_at : ' → Devam ediyor');
+  document.getElementById('modal-severity-badge').innerHTML = '<span class="badge ' + (sevBadge[inc.severity]||'badge-gray') + '">' + inc.severity + '</span>';
+  document.getElementById('modal-status-badge').innerHTML = inc.status === 'open'
+    ? '<span class="badge badge-red">Açık</span>'
+    : '<span class="badge badge-green">Çözüldü</span>';
+
+  document.getElementById('modal-root').textContent = inc.root_cause_svc || '—';
+  document.getElementById('modal-affected').textContent = inc.affected_count + ' servis';
+  document.getElementById('modal-elapsed').textContent = inc.elapsed || '—';
+  document.getElementById('modal-zabbix-count').textContent = inc.zabbix_event_count ? inc.zabbix_event_count + ' alarm' : '—';
+  document.getElementById('modal-infra-root').textContent = inc.infrastructure_root || '—';
+
+  var srcMap = {both:'Zabbix + Log', zabbix:'Zabbix', log:'Log'};
+  var srcBadge = {both:'badge-orange', zabbix:'badge-purple', log:'badge-blue'};
+  document.getElementById('modal-source').innerHTML = '<span class="badge ' + (srcBadge[inc.source]||'badge-gray') + '">' + (srcMap[inc.source]||inc.source) + '</span>';
+
+  document.getElementById('modal-summary').textContent = inc.summary || '—';
+
+  // LLM hazırsa göster
+  if (inc.ai_analysis) {
+    document.getElementById('modal-llm').textContent = inc.ai_analysis;
+    document.getElementById('modal-llm-btn').textContent = '✓ Analiz Mevcut';
+    document.getElementById('modal-llm-btn').disabled = true;
+  } else {
+    document.getElementById('modal-llm').textContent = 'LLM analizini görmek için "Analiz Yükle" butonuna tıklayın.';
+    document.getElementById('modal-llm-btn').textContent = '🤖 Analiz Yükle';
+    document.getElementById('modal-llm-btn').disabled = false;
+  }
+
+  document.getElementById('inc-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function showLLM(idx) {
+  showDetail(idx);
+  if (!incidents[idx].ai_analysis) {
+    setTimeout(loadLLM, 200);
+  }
+}
+
+function loadLLM() {
+  if (!currentInc) return;
+  var btn = document.getElementById('modal-llm-btn');
+  var content = document.getElementById('modal-llm');
+  btn.textContent = '⏳ Analiz ediliyor...';
+  btn.disabled = true;
+  content.textContent = 'LLM analizi hazırlanıyor...';
+
+  fetch('/api/v1/incidents/' + currentInc.id + '/llm-analiz', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    var text = d.ai_analysis || d.analiz || d.analysis || d.message || JSON.stringify(d, null, 2);
+    content.textContent = text;
+    currentInc.ai_analysis = text;
+    btn.textContent = '✓ Analiz Edildi';
+  })
+  .catch(function(e) {
+    // ai_analysis varsa onu göster
+    if (currentInc.ai_analysis) {
+      content.textContent = currentInc.ai_analysis;
+      btn.textContent = '✓ Mevcut Analiz';
+    } else {
+      content.textContent = 'LLM analizi yüklenemedi: ' + e.message;
+      btn.textContent = '🤖 Tekrar Dene';
+      btn.disabled = false;
+    }
+  });
+}
+
+function closeModal() {
+  document.getElementById('inc-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  currentInc = null;
+}
+
+function searchIncidents(q) {
+  var rows = document.querySelectorAll('#inc-table tbody tr');
+  rows.forEach(function(r) {
+    var txt = r.textContent.toLowerCase();
+    r.style.display = txt.includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.getElementById('inc-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+</script>
+{% endblock %}
