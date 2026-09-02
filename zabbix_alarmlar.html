@@ -1,0 +1,334 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Zabbix Alarmları{% endblock %}
+{% block page_title %}Zabbix Alarmları{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ── -->
+<div class="stats-grid mb-20" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--red-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/><circle cx="8" cy="11.5" r=".6" fill="var(--red)"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-active">—</div>
+      <div class="stat-lbl">Aktif DISASTER</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--green-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5"><polyline points="2,8 6,12 14,4"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-resolved">—</div>
+      <div class="stat-lbl">Çözüldü (24s)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--teal-light)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="var(--teal)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-bmc">—</div>
+      <div class="stat-lbl">BMC Eşleşen</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0f0f0">
+      <svg viewBox="0 0 16 16" fill="none" stroke="#999" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="5" y1="5" x2="11" y2="11"/><line x1="11" y1="5" x2="5" y2="11"/></svg>
+    </div>
+    <div>
+      <div class="stat-val" id="stat-nobmc">—</div>
+      <div class="stat-lbl">BMC Eşleşmeyen</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTERS ── -->
+<div class="card mb-16">
+  <div class="card-body" style="padding:10px 18px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn active" onclick="setFilter('active',this)">Aktif</button>
+      <button class="btn" onclick="setFilter('all',this)">Tümü</button>
+      <button class="btn" onclick="setFilter('resolved',this)">Çözüldü</button>
+      <div class="btn-sep"></div>
+      <button class="btn active" onclick="setBMCFilter('all',this)">Tümü</button>
+      <button class="btn" onclick="setBMCFilter('bmc',this)">BMC Eşleşen</button>
+      <button class="btn" onclick="setBMCFilter('nobmc',this)">BMC Eşleşmeyen</button>
+      <div class="btn-sep"></div>
+      <input type="text" id="alarm-search" placeholder="Host veya alarm ara..."
+        style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--txt);font-family:inherit;width:200px"
+        oninput="searchAlarms(this.value)">
+      <span style="margin-left:auto;font-size:12px;color:var(--txt2)">
+        Toplam: <strong id="alarm-count">—</strong> alarm
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ── ALARM LİSTESİ ── -->
+<div id="alarm-list">
+  <div style="text-align:center;padding:40px;color:var(--txt3)">Yükleniyor...</div>
+</div>
+
+<!-- ── DETAY MODAL ── -->
+<div id="alarm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--card);border-radius:8px;width:680px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin-bottom:40px">
+
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="flex:1">
+        <div id="modal-host" style="font-size:15px;font-weight:700;color:var(--txt);font-family:monospace"></div>
+        <div id="modal-time" style="font-size:11px;color:var(--txt3);margin-top:2px"></div>
+      </div>
+      <span class="badge badge-red">DISASTER</span>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px">✕</button>
+    </div>
+
+    <div style="padding:20px">
+
+      <!-- Alarm adı -->
+      <div style="background:var(--red-light);border-left:3px solid var(--red);border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--red);font-weight:500" id="modal-name"></div>
+
+      <!-- Bilgi grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">İşletim Sistemi</div>
+          <div id="modal-os" style="font-size:12px;color:var(--txt2)"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:10px 12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Durum</div>
+          <div id="modal-status" style="font-size:12px"></div>
+        </div>
+      </div>
+
+      <!-- BMC Topoloji -->
+      <div id="modal-bmc-wrap" style="display:none;background:var(--bg);border-radius:6px;padding:12px;margin-bottom:16px;border-left:3px solid var(--teal)">
+        <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">BMC Topoloji</div>
+        <div id="modal-bmc-services" style="font-size:13px;color:var(--txt2)"></div>
+      </div>
+
+      <!-- LLM Analiz -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em">LLM Analizi</div>
+          <button id="modal-llm-btn" class="btn" style="background:var(--blue);color:#fff;border-color:var(--blue)" onclick="loadAlarmLLM()">
+            🤖 Analiz Et
+          </button>
+        </div>
+        <div id="modal-llm" style="background:var(--bg);border-radius:6px;padding:14px;font-size:12px;color:var(--txt2);line-height:1.7;min-height:60px;white-space:pre-wrap">
+          LLM analizini görmek için "Analiz Et" butonuna tıklayın.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var allAlarms = [];
+var currentAlarm = null;
+var statusFilter = 'active';
+var bmcFilter = 'all';
+
+// Alarmları yükle
+function loadAlarms() {
+  fetch('/api/v1/zabbix/events')
+    .then(r => r.json())
+    .then(function(data) {
+      allAlarms = Array.isArray(data) ? data : (data.events || data.items || []);
+      updateStats();
+      renderAlarms();
+    })
+    .catch(function(e) {
+      document.getElementById('alarm-list').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--red);font-size:13px">Alarmlar yüklenemedi: ' + e.message + '</div>';
+    });
+}
+
+function updateStats() {
+  var active   = allAlarms.filter(function(a) { return !a.resolved_at; }).length;
+  var resolved = allAlarms.filter(function(a) { return a.resolved_at; }).length;
+  var bmc      = allAlarms.filter(function(a) { return a.bmc_eslesmis; }).length;
+  var nobmc    = allAlarms.filter(function(a) { return !a.bmc_eslesmis; }).length;
+  document.getElementById('stat-active').textContent   = active;
+  document.getElementById('stat-resolved').textContent = resolved;
+  document.getElementById('stat-bmc').textContent      = bmc;
+  document.getElementById('stat-nobmc').textContent    = nobmc;
+}
+
+function getFiltered() {
+  var q = (document.getElementById('alarm-search').value || '').toLowerCase();
+  return allAlarms.filter(function(a) {
+    if (statusFilter === 'active'   && a.resolved_at)  return false;
+    if (statusFilter === 'resolved' && !a.resolved_at) return false;
+    if (bmcFilter === 'bmc'   && !a.bmc_eslesmis) return false;
+    if (bmcFilter === 'nobmc' &&  a.bmc_eslesmis) return false;
+    if (q) {
+      var name = (a.name || '').toLowerCase();
+      var host = (a.host_name || '').toLowerCase();
+      var svcs = (a.bmc_services || []).join(' ').toLowerCase();
+      if (!name.includes(q) && !host.includes(q) && !svcs.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderAlarms() {
+  var filtered = getFiltered();
+  document.getElementById('alarm-count').textContent = filtered.length;
+
+  if (!filtered.length) {
+    document.getElementById('alarm-list').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Bu filtreye uygun alarm bulunamadı</div>';
+    return;
+  }
+
+  var html = filtered.map(function(a, idx) {
+    var isResolved = !!a.resolved_at;
+    var borderColor = isResolved ? 'var(--green)' : 'var(--red)';
+    var elapsed = a.clock ? timeAgo(a.clock) : '—';
+    var bmcBadge = a.bmc_eslesmis
+      ? '<span class="badge badge-teal" style="font-size:10px">BMC ✓</span>'
+      : '<span class="badge badge-gray" style="font-size:10px">BMC —</span>';
+    var statusBadge = isResolved
+      ? '<span class="badge badge-green">Çözüldü</span>'
+      : '<span class="badge badge-red">Aktif</span>';
+    var services = (a.bmc_services || []).map(function(s) {
+      return '<span class="badge badge-teal" style="font-size:10px;margin-right:4px">' + s + '</span>';
+    }).join('');
+
+    return '<div class="card mb-16" style="border-left:3px solid ' + borderColor + ';cursor:pointer" onclick="showAlarm(' + allAlarms.indexOf(a) + ')">' +
+      '<div class="card-body" style="padding:14px 18px">' +
+        '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">' +
+          '<div style="flex:1">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:4px;font-family:monospace">' + (a.host_name || '—') + '</div>' +
+            '<div style="font-size:12px;color:var(--txt2);margin-bottom:6px">' + (a.name || '—') + '</div>' +
+            '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
+              statusBadge + bmcBadge +
+              (services ? '<span style="margin-left:4px">' + services + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right;flex-shrink:0">' +
+            '<div style="font-size:11px;color:var(--txt3)">' + elapsed + '</div>' +
+            (a.host_os ? '<div style="font-size:10px;color:var(--txt3);margin-top:4px">' + (a.host_os.includes('Windows') ? '🪟 Windows' : '🐧 Linux') + '</div>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end">' +
+          '<button class="btn" onclick="event.stopPropagation();showAlarmLLM(' + allAlarms.indexOf(a) + ')">🤖 LLM Analiz</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('alarm-list').innerHTML = html;
+}
+
+function showAlarm(idx) {
+  var a = allAlarms[idx];
+  currentAlarm = a;
+
+  document.getElementById('modal-host').textContent = a.host_name || '—';
+  document.getElementById('modal-time').textContent = a.clock ? formatDate(a.clock) : '—';
+  document.getElementById('modal-name').textContent = a.name || '—';
+  document.getElementById('modal-os').textContent   = a.host_os || '—';
+
+  var isResolved = !!a.resolved_at;
+  document.getElementById('modal-status').innerHTML = isResolved
+    ? '<span class="badge badge-green">Çözüldü — ' + formatDate(a.resolved_at) + '</span>'
+    : '<span class="badge badge-red">Aktif</span>';
+
+  var bmcWrap = document.getElementById('modal-bmc-wrap');
+  if (a.bmc_eslesmis && a.bmc_services && a.bmc_services.length) {
+    document.getElementById('modal-bmc-services').innerHTML = a.bmc_services.map(function(s) {
+      return '<span class="badge badge-teal" style="margin-right:6px;margin-bottom:4px">' + s + '</span>';
+    }).join('');
+    bmcWrap.style.display = 'block';
+  } else {
+    bmcWrap.style.display = 'none';
+  }
+
+  document.getElementById('modal-llm').textContent = 'LLM analizini görmek için "Analiz Et" butonuna tıklayın.';
+  document.getElementById('modal-llm-btn').textContent = '🤖 Analiz Et';
+  document.getElementById('modal-llm-btn').disabled = false;
+
+  document.getElementById('alarm-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function showAlarmLLM(idx) {
+  showAlarm(idx);
+  setTimeout(loadAlarmLLM, 200);
+}
+
+function loadAlarmLLM() {
+  if (!currentAlarm) return;
+  var btn = document.getElementById('modal-llm-btn');
+  var content = document.getElementById('modal-llm');
+  btn.textContent = '⏳ Analiz ediliyor...';
+  btn.disabled = true;
+  content.textContent = 'LLM analizi hazırlanıyor...';
+
+  fetch('/api/v1/zabbix/events/' + currentAlarm.id + '/llm-analiz', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    content.textContent = d.analiz || d.analysis || d.message || JSON.stringify(d, null, 2);
+    btn.textContent = '✓ Analiz Edildi';
+  })
+  .catch(function(e) {
+    content.textContent = 'LLM analizi başarısız: ' + e.message;
+    btn.textContent = '🤖 Tekrar Dene';
+    btn.disabled = false;
+  });
+}
+
+function closeModal() {
+  document.getElementById('alarm-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  currentAlarm = null;
+}
+
+function setFilter(f, btn) {
+  statusFilter = f;
+  document.querySelectorAll('.btn').forEach(function(b) {
+    if (['Aktif','Tümü','Çözüldü'].includes(b.textContent)) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderAlarms();
+}
+
+function setBMCFilter(f, btn) {
+  bmcFilter = f;
+  renderAlarms();
+}
+
+function searchAlarms(q) {
+  renderAlarms();
+}
+
+function timeAgo(dateStr) {
+  var diff = Math.floor((new Date() - new Date(dateStr)) / 1000);
+  if (diff < 60) return diff + ' sn';
+  if (diff < 3600) return Math.floor(diff/60) + ' dk';
+  if (diff < 86400) return Math.floor(diff/3600) + ' sa ' + Math.floor((diff%3600)/60) + ' dk';
+  return Math.floor(diff/86400) + ' gün';
+}
+
+function formatDate(dateStr) {
+  var d = new Date(dateStr);
+  return d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR');
+}
+
+// ESC ile kapat
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.getElementById('alarm-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+loadAlarms();
+</script>
+{% endblock %}
