@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lumen AIOps — Giriş</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --font: 'Source Sans Pro', -apple-system, sans-serif;
+      --bg:     #f5f6fa;
+      --card:   #ffffff;
+      --border: #e8e8e8;
+      --txt:    #2c2e3e;
+      --txt2:   #7a7a7a;
+      --txt3:   #b0b0b0;
+      --blue:   #4d7cfe;
+      --blue-light: #eef1ff;
+      --red:    #dc3545;
+      --red-light: #fde8ea;
+      --shadow: 0 4px 24px rgba(77,124,254,.12);
+    }
+
+    [data-theme="dark"] {
+      --bg:     #0d1120;
+      --card:   #1e2130;
+      --border: #2a2d3e;
+      --txt:    #d4dff5;
+      --txt2:   #7888a8;
+      --txt3:   #3d4d6a;
+      --blue-light: #0d1a3d;
+      --red-light: #2d0808;
+      --shadow: 0 4px 24px rgba(0,0,0,.4);
+    }
+
+    body {
+      font-family: var(--font);
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s, color .2s;
+    }
+
+    .login-wrap {
+      width: 380px;
+      padding: 20px;
+    }
+
+    /* Brand */
+    .brand {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .brand-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 auto 14px;
+      box-shadow: var(--shadow);
+    }
+    .brand-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--txt);
+      letter-spacing: -.02em;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--txt2);
+      margin-top: 4px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--txt);
+      margin-bottom: 20px;
+    }
+
+    /* Form */
+    .field {
+      margin-bottom: 16px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--txt2);
+      margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--txt);
+      font-size: 14px;
+      font-family: var(--font);
+      transition: border-color .12s, box-shadow .12s;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(77,124,254,.15);
+    }
+
+    /* Hata */
+    .error-box {
+      display: none;
+      background: var(--red-light);
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--red);
+      margin-bottom: 16px;
+    }
+
+    /* Buton */
+    .btn-login {
+      width: 100%;
+      padding: 11px;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: opacity .12s;
+      margin-top: 4px;
+    }
+    .btn-login:hover { opacity: .9; }
+    .btn-login:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 11px;
+      color: var(--txt3);
+    }
+
+    /* Theme toggle */
+    .theme-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--txt2);
+      font-size: 14px;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Auth source badge */
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--blue-light);
+      color: var(--blue);
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<button class="theme-btn" onclick="toggleTheme()" title="Tema değiştir">🌙</button>
+
+<div class="login-wrap">
+
+  <div class="brand">
+    <div class="brand-icon">L</div>
+    <div class="brand-name">Lumen AIOps</div>
+    <div class="brand-sub">Fibabanka SRE Platform · v2.4</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Giriş Yap</div>
+
+    <div class="auth-badge">
+      🏢 LDAP + Yerel Kimlik Doğrulama
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <div class="field">
+      <label>Kullanıcı Adı</label>
+      <input type="text" id="username" placeholder="kullaniciadi" autocomplete="username" autofocus>
+    </div>
+
+    <div class="field">
+      <label>Parola</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn-login" id="login-btn" onclick="doLogin()">
+      <span id="btn-text">Giriş Yap</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+  </div>
+
+  <div class="footer">
+    Fibabanka A.Ş. · SRE Operations · {{ current_year | default(2026) }}
+  </div>
+
+</div>
+
+<script>
+// Theme
+var THEME_KEY = 'lumen-theme';
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelector('.theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  var next = localStorage.getItem(THEME_KEY) === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+
+// Enter ile giriş
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogin() {
+  var username = document.getElementById('username').value.trim();
+  var password = document.getElementById('password').value;
+  var btn      = document.getElementById('login-btn');
+  var spinner  = document.getElementById('spinner');
+  var btnText  = document.getElementById('btn-text');
+  var errorBox = document.getElementById('error-box');
+
+  if (!username || !password) {
+    showError('Kullanıcı adı ve parola gereklidir.');
+    return;
+  }
+
+  // Loading
+  btn.disabled    = true;
+  spinner.style.display = 'block';
+  btnText.style.display = 'none';
+  errorBox.style.display = 'none';
+
+  // OAuth2 form olarak gönder
+  var form = new FormData();
+  form.append('username', username);
+  form.append('password', password);
+
+  fetch('/auth/login', {
+    method: 'POST',
+    body: form
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Giriş başarısız'); });
+    return r.json();
+  })
+  .then(function(data) {
+    // Token'ı sakla
+    if (data.access_token) {
+      localStorage.setItem('lumen_token', data.access_token);
+      localStorage.setItem('lumen_user', username);
+    }
+    // Dashboard'a yönlendir
+    window.location.href = '/dashboard';
+  })
+  .catch(function(e) {
+    showError(e.message || 'Kullanıcı adı veya parola hatalı.');
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.style.display = 'block';
+  });
+}
+
+function showError(msg) {
+  var box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.style.display = 'block';
+}
+
+// Zaten giriş yapılmışsa dashboard'a yönlendir
+if (localStorage.getItem('lumen_token')) {
+  // Token geçerliliğini kontrol et
+  fetch('/auth/me', {
+    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('lumen_token') }
+  })
+  .then(function(r) {
+    if (r.ok) window.location.href = '/dashboard';
+  })
+  .catch(function() {});
+}
+</script>
+
+</body>
+</html>
