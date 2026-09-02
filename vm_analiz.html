@@ -1,0 +1,298 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}VM Analiz{% endblock %}
+{% block page_title %}VM Analiz{% endblock %}
+
+{% block content %}
+
+<div class="row">
+
+  <!-- ── SOL: Grup + Sunucu Listesi ── -->
+  <div class="col" style="max-width:260px;flex-shrink:0">
+
+    <!-- Grup Seçici -->
+    <div class="card mb-16">
+      <div class="card-hd"><div class="card-title">Hypervisor Grubu</div></div>
+      <div class="card-body" style="padding:10px">
+        <select id="group-select"
+          style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--txt);font-size:12px;font-family:inherit;cursor:pointer"
+          onchange="loadHosts(this.value)">
+          <option value="">Grup seçin...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Sunucu Listesi -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Sunucular</div>
+        <div id="host-count" style="font-size:11px;color:var(--txt3)"></div>
+      </div>
+      <div class="card-body" style="padding:8px">
+        <input type="text" id="host-search" placeholder="Sunucu ara..."
+          style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:11px;font-family:inherit;margin-bottom:8px"
+          oninput="filterHosts(this.value)">
+        <div id="host-list" style="max-height:420px;overflow-y:auto">
+          <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">
+            Önce grup seçin
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SAĞ: Metrikler ── -->
+  <div class="col" id="right-panel">
+
+    <!-- Boş durum -->
+    <div id="empty-state" class="card" style="text-align:center;padding:60px">
+      <div style="font-size:40px;margin-bottom:12px">📊</div>
+      <div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:6px">Sunucu Seçin</div>
+      <div style="font-size:12px;color:var(--txt3)">Sol listeden bir sunucu seçerek CPU ve RAM analizini görüntüleyin</div>
+    </div>
+
+    <!-- Metrik Paneli -->
+    <div id="metric-panel" style="display:none">
+
+      <!-- Host Başlık -->
+      <div class="card mb-16">
+        <div class="card-body" style="padding:14px 18px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1">
+            <div id="host-title" style="font-size:16px;font-weight:700;color:var(--txt);font-family:monospace"></div>
+            <div id="host-group" style="font-size:11px;color:var(--txt3);margin-top:2px"></div>
+          </div>
+          <div id="risk-badge"></div>
+          <button class="btn active" onclick="loadLLM()" id="llm-btn">🤖 LLM Analiz</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- CPU -->
+        <div class="col card">
+          <div class="card-hd"><div class="card-title">CPU Kullanımı — Son 60 Gün</div></div>
+          <div class="card-body" style="padding:14px 18px">
+            <div id="cpu-metrics">
+              <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Yükleniyor...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RAM -->
+        <div class="col card">
+          <div class="card-hd"><div class="card-title">RAM Kullanımı — Son 60 Gün</div></div>
+          <div class="card-body" style="padding:14px 18px">
+            <div id="ram-metrics">
+              <div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Yükleniyor...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LLM Analiz -->
+      <div class="card" id="llm-panel" style="display:none">
+        <div class="card-hd">
+          <div class="card-title">🤖 LLM Kapasite Analizi</div>
+          <button class="btn" onclick="document.getElementById('llm-panel').style.display='none'">✕</button>
+        </div>
+        <div class="card-body">
+          <div id="llm-content" style="font-size:13px;color:var(--txt2);line-height:1.8;white-space:pre-wrap"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var selectedHost = null;
+var selectedGroup = null;
+var allHosts = [];
+var trendData = {};
+
+// Grupları yükle
+fetch('/api/v1/vm-radar/groups')
+  .then(r => r.json())
+  .then(groups => {
+    var sel = document.getElementById('group-select');
+    groups.forEach(function(g) {
+      var opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.name;
+      // Varsayılan grup: Hypervisors (id:7)
+      if (g.id === '7') opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // Varsayılan grubu yükle
+    if (sel.value) loadHosts(sel.value);
+  })
+  .catch(function() {
+    document.getElementById('host-list').innerHTML =
+      '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px">Gruplar yüklenemedi</div>';
+  });
+
+function loadHosts(groupId) {
+  if (!groupId) return;
+  selectedGroup = groupId;
+  selectedHost = null;
+  document.getElementById('host-list').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Yükleniyor...</div>';
+  document.getElementById('empty-state').style.display = 'block';
+  document.getElementById('metric-panel').style.display = 'none';
+
+  fetch('/api/v1/vm-radar/hosts?group_id=' + groupId)
+    .then(r => r.json())
+    .then(function(data) {
+      allHosts = data.hosts || data || [];
+      document.getElementById('host-count').textContent = allHosts.length + ' sunucu';
+      renderHosts(allHosts);
+    })
+    .catch(function() {
+      document.getElementById('host-list').innerHTML =
+        '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px">Sunucular yüklenemedi</div>';
+    });
+}
+
+function renderHosts(hosts) {
+  var list = document.getElementById('host-list');
+  if (!hosts.length) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Sunucu bulunamadı</div>';
+    return;
+  }
+  list.innerHTML = hosts.map(function(h) {
+    var name = h.name || h.host || h;
+    var hostid = h.hostid || h.id || name;
+    var isActive = selectedHost && selectedHost.name === name;
+    return '<div class="srv-item' + (isActive ? ' active' : '') + '" ' +
+      'onclick="selectHost(' + JSON.stringify({name: name, hostid: hostid}) + ')" ' +
+      'title="' + name + '">' +
+      (name.length > 28 ? name.substring(0, 28) + '…' : name) +
+      '</div>';
+  }).join('');
+}
+
+function filterHosts(q) {
+  var filtered = allHosts.filter(function(h) {
+    var name = h.name || h.host || h;
+    return name.toLowerCase().includes(q.toLowerCase());
+  });
+  renderHosts(filtered);
+}
+
+function selectHost(host) {
+  selectedHost = host;
+  // Aktif sınıfı güncelle
+  document.querySelectorAll('.srv-item').forEach(function(el) {
+    el.classList.remove('active');
+    if (el.title === host.name) el.classList.add('active');
+  });
+
+  document.getElementById('host-title').textContent = host.name;
+  document.getElementById('host-group').textContent = 'Grup: ' + (document.getElementById('group-select').options[document.getElementById('group-select').selectedIndex].text || '');
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('metric-panel').style.display = 'block';
+  document.getElementById('llm-panel').style.display = 'none';
+  document.getElementById('risk-badge').innerHTML = '';
+  document.getElementById('cpu-metrics').innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Yükleniyor...</div>';
+  document.getElementById('ram-metrics').innerHTML = '<div style="text-align:center;padding:20px;color:var(--txt3);font-size:12px">Yükleniyor...</div>';
+
+  // Trend verisi çek
+  fetch('/api/v1/vm-radar/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({host_name: host.name, hostid: host.hostid, days: 60})
+  })
+  .then(r => r.json())
+  .then(function(data) {
+    trendData = data;
+    renderMetrics(data);
+  })
+  .catch(function(e) {
+    document.getElementById('cpu-metrics').innerHTML =
+      '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px">Veri yüklenemedi: ' + e.message + '</div>';
+    document.getElementById('ram-metrics').innerHTML = '';
+  });
+}
+
+function renderMetrics(data) {
+  var cpu = data.cpu || {};
+  var ram = data.ram || data.memory || {};
+
+  // Risk badge
+  var risk = data.risk_level || 'unknown';
+  var riskColors = {low:'var(--green)', medium:'var(--amber)', high:'var(--orange)', critical:'var(--red)'};
+  var riskLabels = {low:'Düşük Risk', medium:'Orta Risk', high:'Yüksek Risk', critical:'Kritik'};
+  var riskBadgeColors = {low:'badge-green', medium:'badge-amber', high:'badge-orange', critical:'badge-red'};
+  document.getElementById('risk-badge').innerHTML =
+    '<span class="badge ' + (riskBadgeColors[risk] || 'badge-gray') + '">' + (riskLabels[risk] || risk) + '</span>';
+
+  // CPU
+  document.getElementById('cpu-metrics').innerHTML = renderGauges([
+    {label: 'P95', val: cpu.p95, max: 100, unit: '%', warn: 80, crit: 90},
+    {label: 'Maksimum', val: cpu.max, max: 100, unit: '%', warn: 80, crit: 90},
+    {label: 'Ortalama', val: cpu.avg, max: 100, unit: '%', warn: 50, crit: 70},
+  ], cpu.spike_hours ? '<div style="font-size:11px;color:var(--orange);margin-top:8px">⚠ ' + cpu.spike_hours + ' saat %80+ spike</div>' : '');
+
+  // RAM
+  var ramTotal = ram.total_gb ? ram.total_gb.toFixed(1) + ' GB toplam' : '';
+  document.getElementById('ram-metrics').innerHTML = renderGauges([
+    {label: 'P95', val: ram.p95, max: 100, unit: '%', warn: 80, crit: 90},
+    {label: 'Maksimum', val: ram.max, max: 100, unit: '%', warn: 80, crit: 90},
+    {label: 'Ortalama', val: ram.avg, max: 100, unit: '%', warn: 60, crit: 80},
+  ], ramTotal ? '<div style="font-size:11px;color:var(--txt3);margin-top:8px">' + ramTotal + '</div>' : '');
+}
+
+function renderGauges(items, extra) {
+  var html = '';
+  items.forEach(function(item) {
+    var val = item.val != null ? parseFloat(item.val).toFixed(1) : '—';
+    var pct = item.val != null ? Math.min(100, parseFloat(item.val)) : 0;
+    var color = 'var(--green)';
+    if (item.val >= item.crit) color = 'var(--red)';
+    else if (item.val >= item.warn) color = 'var(--orange)';
+
+    html += '<div class="gauge-row">' +
+      '<div class="gauge-lbl">' + item.label + '</div>' +
+      '<div class="gauge-track"><div class="gauge-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+      '<div class="gauge-val" style="color:' + color + '">' + val + (item.val != null ? item.unit : '') + '</div>' +
+      '</div>';
+  });
+  if (extra) html += extra;
+  return html;
+}
+
+function loadLLM() {
+  if (!selectedHost) return;
+  var btn = document.getElementById('llm-btn');
+  var panel = document.getElementById('llm-panel');
+  var content = document.getElementById('llm-content');
+  btn.textContent = '⏳ Analiz ediliyor...';
+  btn.disabled = true;
+  panel.style.display = 'block';
+  content.textContent = 'LLM analizi hazırlanıyor, lütfen bekleyin...';
+
+  fetch('/api/v1/vm-radar/llm-analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      host_name: selectedHost.name,
+      hostid: selectedHost.hostid,
+      trend_data: trendData
+    })
+  })
+  .then(r => r.json())
+  .then(function(data) {
+    content.textContent = data.analysis || data.message || JSON.stringify(data, null, 2);
+    btn.textContent = '🤖 LLM Analiz';
+    btn.disabled = false;
+  })
+  .catch(function(e) {
+    content.textContent = 'LLM analizi başarısız: ' + e.message;
+    btn.textContent = '🤖 LLM Analiz';
+    btn.disabled = false;
+  });
+}
+</script>
+{% endblock %}
