@@ -1,0 +1,276 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Entegrasyonlar{% endblock %}
+{% block page_title %}Entegrasyonlar{% endblock %}
+
+{% block content %}
+
+<div style="margin-bottom:16px;font-size:13px;color:var(--txt2)">
+  Entegrasyon ayarları Fernet şifreli olarak saklanmaktadır. Şifre alanları kayıt sırasında otomatik şifrelenir.
+</div>
+
+<div id="integration-list">
+  <div style="text-align:center;padding:40px;color:var(--txt3)">Yükleniyor...</div>
+</div>
+
+<!-- ── DÜZENLEME MODAL ── -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--card);border-radius:8px;width:600px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin-bottom:40px">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div id="modal-title" style="font-size:15px;font-weight:700;color:var(--txt);flex:1"></div>
+      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div id="modal-fields"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn active" onclick="saveIntegration()" style="flex:1">💾 Kaydet</button>
+        <button class="btn" onclick="testIntegration()" id="test-btn">🔌 Test Et</button>
+        <button class="btn" onclick="closeModal()">İptal</button>
+      </div>
+      <div id="test-result" style="margin-top:10px;display:none;padding:10px 14px;border-radius:6px;font-size:12px"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var integrations = [];
+var currentKey = null;
+
+// İkon ve renk map
+var intMeta = {
+  zabbix: { icon: '🔔', color: 'var(--red)',    label: 'Zabbix',   desc: 'DISASTER alarm polling ve bildirim' },
+  llm:    { icon: '🤖', color: 'var(--purple)', label: 'LLM / AI', desc: 'Root Cause Analysis için LLM entegrasyonu' },
+  neo4j:  { icon: '🕸️', color: 'var(--teal)',   label: 'Neo4j',    desc: 'Servis topoloji grafı veritabanı' },
+  smtp:   { icon: '📧', color: 'var(--blue)',   label: 'SMTP Mail', desc: 'E-posta bildirimleri' },
+  teams:  { icon: '💬', color: 'var(--blue)',   label: 'MS Teams',  desc: 'Teams kanal bildirimleri' },
+};
+
+// Gizli alanlar (şifre)
+var secretFields = {
+  zabbix: ['password', 'api_token'],
+  llm:    ['api_key'],
+  smtp:   ['password'],
+  neo4j:  ['password'],
+  teams:  ['webhook_url'],
+};
+
+function loadIntegrations() {
+  fetch('/api/v1/integrations', {
+    headers: { 'Authorization': 'Bearer ' + getToken() }
+  })
+  .then(r => r.json())
+  .then(function(data) {
+    integrations = Array.isArray(data) ? data : (data.items || []);
+    renderList();
+  })
+  .catch(function(e) {
+    document.getElementById('integration-list').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--red);font-size:13px">Yüklenemedi: ' + e.message + '</div>';
+  });
+}
+
+function getToken() {
+  return localStorage.getItem('lumen_token') || '';
+}
+
+function renderList() {
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
+  integrations.forEach(function(integ) {
+    var meta = intMeta[integ.key] || { icon: '⚙️', color: 'var(--blue)', label: integ.name || integ.key, desc: '' };
+    var isEnabled = integ.enabled;
+    var lastTest  = integ.last_test ? new Date(integ.last_test).toLocaleString('tr-TR') : '—';
+    var testOk    = integ.test_result === 'ok' || integ.status === 'ok';
+
+    html += '<div class="card" style="border-left:3px solid ' + (isEnabled ? meta.color : 'var(--border)') + '">' +
+      '<div class="card-hd">' +
+        '<div style="font-size:20px;margin-right:8px">' + meta.icon + '</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:700;color:var(--txt)">' + meta.label + '</div>' +
+          '<div style="font-size:11px;color:var(--txt3)">' + meta.desc + '</div>' +
+        '</div>' +
+        (isEnabled
+          ? '<span class="badge badge-green">Aktif</span>'
+          : '<span class="badge badge-gray">Pasif</span>') +
+      '</div>' +
+      '<div class="card-body" style="padding:12px 18px">' +
+        '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+
+    // Config key'leri göster (secret olmayanlar)
+    var secrets = secretFields[integ.key] || [];
+    var config = integ.config || {};
+    Object.keys(config).forEach(function(k) {
+      if (!secrets.includes(k)) {
+        html += '<div style="background:var(--bg);border-radius:4px;padding:4px 8px;font-size:10px">' +
+          '<span style="color:var(--txt3)">' + k + ': </span>' +
+          '<span style="color:var(--txt2)">' + (config[k] !== null && config[k] !== undefined ? String(config[k]).substring(0, 30) : '—') + '</span>' +
+          '</div>';
+      }
+    });
+
+    html +=   '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between">' +
+          '<div style="font-size:11px;color:var(--txt3)">' +
+            'Son test: ' + lastTest +
+            (integ.last_test ? (' <span style="color:' + (testOk ? 'var(--green)' : 'var(--red)') + '">' + (testOk ? '✓' : '✗') + '</span>') : '') +
+          '</div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="btn" onclick="openEdit(\'' + integ.key + '\')">✏️ Düzenle</button>' +
+            '<button class="btn" onclick="quickTest(\'' + integ.key + '\')" id="qtest-' + integ.key + '">🔌 Test</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  document.getElementById('integration-list').innerHTML = html;
+}
+
+function openEdit(key) {
+  var integ = integrations.find(function(i) { return i.key === key; });
+  if (!integ) return;
+  currentKey = key;
+  var meta = intMeta[key] || { icon: '⚙️', label: key };
+
+  document.getElementById('modal-title').textContent = meta.icon + ' ' + (meta.label || key) + ' Ayarları';
+
+  var secrets = secretFields[key] || [];
+  var config  = integ.config  || {};
+  var html = '';
+
+  // Enabled toggle
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--bg);border-radius:6px">' +
+    '<label style="font-size:13px;color:var(--txt);flex:1;font-weight:600">Entegrasyon Aktif</label>' +
+    '<input type="checkbox" id="field-enabled" ' + (integ.enabled ? 'checked' : '') + ' style="width:18px;height:18px;cursor:pointer">' +
+    '</div>';
+
+  // Config alanları
+  if (Object.keys(config).length > 0) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Yapılandırma</div>';
+    Object.keys(config).forEach(function(k) {
+      var val = config[k];
+      html += '<div style="margin-bottom:10px">' +
+        '<label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px">' + k + '</label>' +
+        '<input id="cfg-' + k + '" type="' + (secrets.includes(k) ? 'password' : 'text') + '" value="' + (val !== null ? String(val) : '') + '" ' +
+        'style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;font-family:monospace">' +
+        '</div>';
+    });
+  }
+
+  // Secret alanları (boş göster)
+  var existingSecrets = secrets.filter(function(s) { return !Object.keys(config).includes(s); });
+  if (existingSecrets.length > 0 || secrets.length > 0) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">Gizli Alanlar (değiştirmek için doldurun)</div>';
+    secrets.forEach(function(s) {
+      html += '<div style="margin-bottom:10px">' +
+        '<label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px">' + s + '</label>' +
+        '<input id="sec-' + s + '" type="password" placeholder="••••••••" ' +
+        'style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;font-family:monospace">' +
+        '</div>';
+    });
+  }
+
+  document.getElementById('modal-fields').innerHTML = html;
+  document.getElementById('test-result').style.display = 'none';
+  document.getElementById('edit-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function saveIntegration() {
+  if (!currentKey) return;
+  var integ = integrations.find(function(i) { return i.key === currentKey; });
+  if (!integ) return;
+
+  var enabled = document.getElementById('field-enabled').checked;
+  var config  = Object.assign({}, integ.config || {});
+  var secrets = {};
+
+  // Config alanlarını topla
+  Object.keys(config).forEach(function(k) {
+    var el = document.getElementById('cfg-' + k);
+    if (el) config[k] = el.value;
+  });
+
+  // Secret alanlarını topla (doluysa)
+  (secretFields[currentKey] || []).forEach(function(s) {
+    var el = document.getElementById('sec-' + s);
+    if (el && el.value) secrets[s] = el.value;
+  });
+
+  fetch('/api/v1/integrations/' + currentKey, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + getToken()
+    },
+    body: JSON.stringify({ enabled: enabled, config: config, secrets: secrets })
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    closeModal();
+    loadIntegrations();
+  })
+  .catch(function(e) { alert('Kayıt başarısız: ' + e.message); });
+}
+
+function testIntegration() {
+  if (!currentKey) return;
+  var btn = document.getElementById('test-btn');
+  var result = document.getElementById('test-result');
+  btn.textContent = '⏳ Test ediliyor...';
+  btn.disabled = true;
+  result.style.display = 'none';
+
+  fetch('/api/v1/integrations/' + currentKey + '/test', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + getToken() }
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    var ok = d.status === 'ok' || d.success === true;
+    result.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;background:' +
+      (ok ? 'var(--green-light)' : 'var(--red-light)') + ';color:' + (ok ? 'var(--green)' : 'var(--red)') + ';border:1px solid ' + (ok ? 'var(--green)' : 'var(--red)');
+    result.textContent = (ok ? '✓ Bağlantı başarılı' : '✗ Bağlantı başarısız') + (d.message ? ': ' + d.message : '');
+    btn.textContent = '🔌 Test Et';
+    btn.disabled = false;
+    loadIntegrations();
+  })
+  .catch(function(e) {
+    result.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;background:var(--red-light);color:var(--red)';
+    result.textContent = '✗ Test başarısız: ' + e.message;
+    btn.textContent = '🔌 Test Et';
+    btn.disabled = false;
+  });
+}
+
+function quickTest(key) {
+  var btn = document.getElementById('qtest-' + key);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  fetch('/api/v1/integrations/' + key + '/test', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + getToken() }
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    var ok = d.status === 'ok' || d.success === true;
+    if (btn) { btn.textContent = ok ? '✓' : '✗'; btn.disabled = false; btn.style.color = ok ? 'var(--green)' : 'var(--red)'; }
+    setTimeout(function() { if (btn) { btn.textContent = '🔌 Test'; btn.style.color = ''; } loadIntegrations(); }, 2000);
+  })
+  .catch(function() { if (btn) { btn.textContent = '✗'; btn.disabled = false; } });
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  currentKey = null;
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.getElementById('edit-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+loadIntegrations();
+</script>
+{% endblock %}
