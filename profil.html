@@ -1,0 +1,112 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Profilim{% endblock %}
+{% block page_title %}Profilim{% endblock %}
+
+{% block content %}
+
+<div style="max-width:500px;margin:0 auto">
+
+  <!-- Kullanıcı bilgisi -->
+  <div class="card mb-16">
+    <div class="card-hd"><div class="card-title">Hesap Bilgileri</div></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0">
+          {{ current_user[0].upper() if current_user else 'A' }}
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--txt)">{{ current_user }}</div>
+          <div style="font-size:12px;color:var(--txt3)">{{ user_email or '—' }}</div>
+          <div style="margin-top:4px">
+            {% for role in user_roles %}
+              <span class="badge badge-{% if role == 'Admin' %}red{% elif role == 'SRE Lead' %}orange{% elif role == 'NOC Analyst' %}blue{% else %}gray{% endif %}" style="margin-right:3px">{{ role }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--txt3);padding:8px 12px;background:var(--bg);border-radius:6px">
+        Kaynak: <strong>{{ user_source or 'local' }}</strong> · 
+        Son giriş: <strong>{{ user_last_login or '—' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Şifre değiştir -->
+  <div class="card">
+    <div class="card-hd"><div class="card-title">Şifre Değiştir</div></div>
+    <div class="card-body">
+      {% if user_source == 'ldap' %}
+        <div style="padding:12px;background:var(--amber-light);border-radius:6px;font-size:13px;color:#856404">
+          ⚠ LDAP kullanıcısı — şifrenizi Active Directory üzerinden değiştirin.
+        </div>
+      {% else %}
+        <div class="field" style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Mevcut Şifre</label>
+          <input type="password" id="current-pw" placeholder="••••••••"
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Yeni Şifre</label>
+          <input type="password" id="new-pw" placeholder="En az 8 karakter"
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+        </div>
+        <div class="field" style="margin-bottom:16px">
+          <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Yeni Şifre (Tekrar)</label>
+          <input type="password" id="new-pw2" placeholder="••••••••"
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit">
+        </div>
+        <div id="pw-error" style="display:none;background:var(--red-light);border:1px solid var(--red);border-radius:4px;padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:12px"></div>
+        <div id="pw-success" style="display:none;background:var(--green-light);border:1px solid var(--green);border-radius:4px;padding:8px 12px;font-size:12px;color:var(--green);margin-bottom:12px"></div>
+        <button class="btn active" onclick="changePassword()" style="width:100%;padding:9px">🔒 Şifreyi Güncelle</button>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changePassword() {
+  var current = document.getElementById('current-pw').value;
+  var newPw   = document.getElementById('new-pw').value;
+  var newPw2  = document.getElementById('new-pw2').value;
+  var errEl   = document.getElementById('pw-error');
+  var okEl    = document.getElementById('pw-success');
+
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!current || !newPw || !newPw2) { showErr('Tüm alanları doldurun.'); return; }
+  if (newPw.length < 8) { showErr('Yeni şifre en az 8 karakter olmalıdır.'); return; }
+  if (newPw !== newPw2) { showErr('Yeni şifreler eşleşmiyor.'); return; }
+
+  fetch('/api/v1/user/change-password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '')
+    },
+    body: JSON.stringify({ current_password: current, new_password: newPw })
+  })
+  .then(r => r.json())
+  .then(function(d) {
+    if (d.detail) { showErr(d.detail); return; }
+    okEl.textContent = '✓ Şifreniz başarıyla güncellendi.';
+    okEl.style.display = 'block';
+    document.getElementById('current-pw').value = '';
+    document.getElementById('new-pw').value = '';
+    document.getElementById('new-pw2').value = '';
+  })
+  .catch(function(e) { showErr('Hata: ' + e.message); });
+}
+
+function showErr(msg) {
+  var el = document.getElementById('pw-error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+</script>
+{% endblock %}
