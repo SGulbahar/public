@@ -1,0 +1,26 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Servis Haritası{% endblock %}
+{% block page_title %}Servis Haritası{% endblock %}
+
+{% block content %}
+
+<div class="card" style="height:calc(100vh - 180px)">
+  <div class="card-hd">
+    <div class="card-title">Neo4j Servis İlişki Haritası</div>
+    <div class="card-actions">
+      <button class="btn" onclick="document.getElementById('map-frame').src='/api/v1/service-map?t='+Date.now()">↺ Yenile</button>
+      <a href="/api/v1/service-map" target="_blank" class="btn">↗ Tam Ekran</a>
+    </div>
+  </div>
+  <div style="flex:1;height:calc(100% - 45px)">
+    <iframe
+      id="map-frame"
+      src="/api/v1/service-map"
+      style="width:100%;height:100%;border:none;background:var(--bg)"
+      title="Servis Haritası">
+    </iframe>
+  </div>
+</div>
+
+{% endblock %}
