@@ -1,0 +1,282 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Sistem Ayarları{% endblock %}
+{% block page_title %}Sistem Ayarları{% endblock %}
+
+{% block content %}
+
+<div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+  <div style="font-size:13px;color:var(--txt2)">Anomali motoru, bildirim ve LLM ayarları</div>
+  <button class="btn active" onclick="saveAll()" id="save-btn">💾 Tümünü Kaydet</button>
+</div>
+
+<div id="save-msg" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:6px;font-size:13px"></div>
+
+<!-- ── KURAL MOTORU ── -->
+<div class="card mb-16">
+  <div class="card-hd"><div class="card-title">⚙️ Kural Motoru — Eşikler</div></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700">Hata Oranı</div>
+        <div class="field-row">
+          <label>HIGH Eşiği (%)</label>
+          <input type="number" step="0.01" id="rule_error_rate_high" data-key="rule_error_rate_high">
+        </div>
+        <div class="field-row">
+          <label>DISASTER Eşiği (%)</label>
+          <input type="number" step="0.01" id="rule_error_rate_disaster" data-key="rule_error_rate_disaster">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700">Yanıt Süresi (ms)</div>
+        <div class="field-row">
+          <label>HIGH Eşiği</label>
+          <input type="number" id="rule_elapsed_high" data-key="rule_elapsed_high">
+        </div>
+        <div class="field-row">
+          <label>DISASTER Eşiği</label>
+          <input type="number" id="rule_elapsed_disaster" data-key="rule_elapsed_disaster">
+        </div>
+        <div class="field-row">
+          <label>P95 HIGH Eşiği</label>
+          <input type="number" id="rule_elapsed_p95_high" data-key="rule_elapsed_p95_high">
+        </div>
+        <div class="field-row">
+          <label>P99 DISASTER Eşiği</label>
+          <input type="number" id="rule_elapsed_p99_disaster" data-key="rule_elapsed_p99_disaster">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700">İşlem Sayısı</div>
+        <div class="field-row">
+          <label>Min. İşlem Sayısı</label>
+          <input type="number" id="min_tx_count" data-key="min_tx_count">
+        </div>
+        <div class="field-row">
+          <label>Min. Yavaş İşlem</label>
+          <input type="number" id="min_slow_tx_count" data-key="min_slow_tx_count">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700">Hata Kodu</div>
+        <div class="field-row">
+          <label>BIZ Spike Eşiği</label>
+          <input type="number" id="biz_error_code_threshold" data-key="biz_error_code_threshold">
+        </div>
+        <div class="field-row">
+          <label>SYS Spike Eşiği</label>
+          <input type="number" id="sys_error_code_threshold" data-key="sys_error_code_threshold">
+        </div>
+        <div class="field-row">
+          <label>Sliding Window (sn)</label>
+          <input type="number" id="sliding_window_seconds" data-key="sliding_window_seconds">
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <div class="field-row">
+        <label>Cooldown Süresi (sn)</label>
+        <input type="number" id="cooldown_seconds" data-key="cooldown_seconds">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Z-SCORE ── -->
+<div class="card mb-16">
+  <div class="card-hd">
+    <div class="card-title">📊 Z-Score Motoru</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);cursor:pointer">
+      <input type="checkbox" id="zscore_enabled" data-key="zscore_enabled" onchange="updateToggle(this)">
+      Aktif
+    </label>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="field-row">
+        <label>Kayan Pencere (dk)</label>
+        <input type="number" id="zscore_rolling_minutes" data-key="zscore_rolling_minutes">
+      </div>
+      <div class="field-row">
+        <label>WARNING Eşiği (σ)</label>
+        <input type="number" step="0.1" id="zscore_threshold_warning" data-key="zscore_threshold_warning">
+      </div>
+      <div class="field-row">
+        <label>HIGH Eşiği (σ)</label>
+        <input type="number" step="0.1" id="zscore_threshold_high" data-key="zscore_threshold_high">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LLM ── -->
+<div class="card mb-16">
+  <div class="card-hd">
+    <div class="card-title">🤖 LLM / RCA Ayarları</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);cursor:pointer">
+      <input type="checkbox" id="llm_rca_enabled" data-key="llm_rca_enabled" onchange="updateToggle(this)">
+      RCA Aktif
+    </label>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="field-row">
+        <label>Min. Seviye</label>
+        <select id="llm_min_severity" data-key="llm_min_severity">
+          <option value="WARNING">WARNING</option>
+          <option value="HIGH">HIGH</option>
+          <option value="DISASTER">DISASTER</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Max Token</label>
+        <input type="number" id="llm_max_tokens" data-key="llm_max_tokens">
+      </div>
+      <div class="field-row">
+        <label>Timeout (sn)</label>
+        <input type="number" id="llm_timeout" data-key="llm_timeout">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── BİLDİRİM ── -->
+<div class="card mb-16">
+  <div class="card-hd">
+    <div class="card-title">🔔 Bildirim Ayarları</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt2);cursor:pointer">
+      <input type="checkbox" id="notification_enabled" data-key="notification_enabled" onchange="updateToggle(this)">
+      Aktif
+    </label>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="field-row">
+        <label>Min. Seviye</label>
+        <select id="notification_min_severity" data-key="notification_min_severity">
+          <option value="WARNING">WARNING</option>
+          <option value="HIGH">HIGH</option>
+          <option value="DISASTER">DISASTER</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Cooldown (sn)</label>
+        <input type="number" id="notification_cooldown" data-key="notification_cooldown">
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.field-row {
+  margin-bottom: 10px;
+}
+.field-row label {
+  display: block;
+  font-size: 11px;
+  color: var(--txt2);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.field-row input, .field-row select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--txt);
+  font-size: 13px;
+  font-family: inherit;
+}
+.field-row input:focus, .field-row select:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var settings = {};
+
+// Ayarları yükle
+fetch('/api/v1/settings', {
+  headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '') }
+})
+.then(r => r.json())
+.then(function(data) {
+  data.forEach(function(s) {
+    settings[s.key] = s.value;
+    var el = document.getElementById(s.key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = s.value === 'true';
+    } else if (el.tagName === 'SELECT') {
+      el.value = s.value;
+    } else {
+      el.value = s.value;
+    }
+  });
+})
+.catch(function(e) {
+  showMsg('Ayarlar yüklenemedi: ' + e.message, false);
+});
+
+function updateToggle(cb) {
+  // Toggle değişince görsel güncelle
+}
+
+function saveAll() {
+  var btn = document.getElementById('save-btn');
+  btn.textContent = '⏳ Kaydediliyor...';
+  btn.disabled = true;
+
+  var inputs = document.querySelectorAll('[data-key]');
+  var promises = [];
+
+  inputs.forEach(function(el) {
+    var key = el.dataset.key;
+    var value;
+    if (el.type === 'checkbox') {
+      value = el.checked ? 'true' : 'false';
+    } else {
+      value = el.value;
+    }
+    if (value === '' || value === null || value === undefined) return;
+
+    var p = fetch('/api/v1/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('lumen_token') || '')
+      },
+      body: JSON.stringify({ key: key, value: value })
+    });
+    promises.push(p);
+  });
+
+  Promise.all(promises)
+    .then(function() {
+      showMsg('✓ Tüm ayarlar başarıyla kaydedildi.', true);
+      btn.textContent = '💾 Tümünü Kaydet';
+      btn.disabled = false;
+    })
+    .catch(function(e) {
+      showMsg('✗ Kayıt sırasında hata: ' + e.message, false);
+      btn.textContent = '💾 Tümünü Kaydet';
+      btn.disabled = false;
+    });
+}
+
+function showMsg(msg, ok) {
+  var el = document.getElementById('save-msg');
+  el.textContent = msg;
+  el.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:13px;background:' +
+    (ok ? 'var(--green-light);color:var(--green);border:1px solid var(--green)' :
+         'var(--red-light);color:var(--red);border:1px solid var(--red)');
+  setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+</script>
+{% endblock %}
