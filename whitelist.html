@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Servis Whitelist - Lumen{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1"><i class="bi bi-shield-check me-2 text-success"></i>Servis Whitelist</h4>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0 small">
+          <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+          <li class="breadcrumb-item">Yönetim</li>
+          <li class="breadcrumb-item active">Whitelist</li>
+        </ol>
+      </nav>
+    </div>
+    {% if "admin.settings.edit" in user_perms or not user_perms %}
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal">
+      <i class="bi bi-plus-lg me-1"></i>Kural Ekle
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-3 bg-success bg-opacity-10 p-3">
+            <i class="bi bi-list-check fs-4 text-success"></i>
+          </div>
+          <div>
+            <div class="fs-3 fw-bold">{{ entries | length }}</div>
+            <div class="text-muted small">Toplam Kural</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-3 bg-primary bg-opacity-10 p-3">
+            <i class="bi bi-hdd-stack fs-4 text-primary"></i>
+          </div>
+          <div>
+            <div class="fs-3 fw-bold" id="stat-services">-</div>
+            <div class="text-muted small">Unique Servis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-3 bg-warning bg-opacity-10 p-3">
+            <i class="bi bi-funnel fs-4 text-warning"></i>
+          </div>
+          <div>
+            <div class="fs-3 fw-bold" id="stat-rules">-</div>
+            <div class="text-muted small">Unique Kural Tipi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-5">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+            <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Servis adı veya kanal ile ara..." oninput="filterTable()">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select id="ruleFilter" class="form-select form-select-sm" onchange="filterTable()">
+            <option value="">Tüm Kural Tipleri</option>
+            {% for rule in rules %}
+            <option value="{{ rule }}">{{ rule }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4 text-end">
+          <span class="text-muted small" id="rowCount"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="whitelistTable">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Servis Adı</th>
+              <th>Kanal Kodu</th>
+              <th>Kural Tipi</th>
+              <th>Sebep</th>
+              <th>Ekleyen</th>
+              <th>Tarih</th>
+              {% if "admin.settings.edit" in user_perms or not user_perms %}
+              <th class="text-end pe-3">İşlem</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            {% for e in entries %}
+            <tr data-service="{{ e.service_name | lower }}" data-channel="{{ e.channel_code | lower }}" data-rule="{{ e.rule_name }}">
+              <td class="ps-3">
+                <span class="fw-semibold">{{ e.service_name }}</span>
+              </td>
+              <td>
+                {% if e.channel_code == '*' %}
+                <span class="badge bg-secondary">Tümü</span>
+                {% else %}
+                <span class="badge bg-info text-dark">{{ e.channel_code }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-warning text-dark">{{ e.rule_name }}</span>
+              </td>
+              <td class="text-muted small" style="max-width:220px;">
+                <span title="{{ e.reason or '' }}">{{ (e.reason or '-')[:60] }}{% if e.reason and e.reason|length > 60 %}…{% endif %}</span>
+              </td>
+              <td class="small text-muted">{{ e.created_by or '-' }}</td>
+              <td class="small text-muted">
+                {% if e.created_at %}
+                  {{ e.created_at[:10] }}
+                {% else %}-{% endif %}
+              </td>
+              {% if "admin.settings.edit" in user_perms or not user_perms %}
+              <td class="text-end pe-3">
+                <button class="btn btn-sm btn-outline-danger"
+                  onclick="deleteEntry('{{ e.service_name }}','{{ e.channel_code }}','{{ e.rule_name }}')">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+              {% endif %}
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-shield-check fs-2 d-block mb-2 opacity-25"></i>
+                Henüz whitelist kaydı yok
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-shield-plus me-2"></i>Whitelist Kural Ekle</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Servis Adı <span class="text-danger">*</span></label>
+          <input type="text" id="inp-service" class="form-control" placeholder="örn: HAVALE_SERVISI">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Kanal Kodu</label>
+          <input type="text" id="inp-channel" class="form-control" value="*" placeholder="* = Tümü">
+          <div class="form-text">Tüm kanallar için * bırakın</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Kural Tipi <span class="text-danger">*</span></label>
+          <select id="inp-rule" class="form-select">
+            {% for rule in rules %}
+            <option value="{{ rule }}">{{ rule }}</option>
+            {% endfor %}
+            <option value="__custom__">-- Özel kural adı gir --</option>
+          </select>
+        </div>
+        <div class="mb-3 d-none" id="customRuleDiv">
+          <label class="form-label fw-semibold">Özel Kural Adı</label>
+          <input type="text" id="inp-rule-custom" class="form-control" placeholder="Kural adı girin">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sebep</label>
+          <textarea id="inp-reason" class="form-control" rows="2" placeholder="Bu kuralın neden eklendiğini açıklayın"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+        <button type="button" class="btn btn-success" onclick="saveEntry()">
+          <i class="bi bi-check-lg me-1"></i>Kaydet
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Sil</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="deleteConfirmText">Bu kaydı silmek istediğinize emin misiniz?</p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Hayır</button>
+        <button type="button" class="btn btn-sm btn-danger" id="confirmDeleteBtn">Evet, Sil</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const entries = {{ entries | tojson }};
+const token = localStorage.getItem('lumen_token') || '';
+
+// Stats
+document.addEventListener('DOMContentLoaded', () => {
+  const services = new Set(entries.map(e => e.service_name));
+  const rules = new Set(entries.map(e => e.rule_name));
+  document.getElementById('stat-services').textContent = services.size;
+  document.getElementById('stat-rules').textContent = rules.size;
+  updateRowCount();
+
+  // Custom rule toggle
+  document.getElementById('inp-rule').addEventListener('change', function() {
+    const custom = this.value === '__custom__';
+    document.getElementById('customRuleDiv').classList.toggle('d-none', !custom);
+  });
+});
+
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const ruleFilter = document.getElementById('ruleFilter').value;
+  const rows = document.querySelectorAll('#tableBody tr[data-service]');
+  let visible = 0;
+  rows.forEach(row => {
+    const service = row.dataset.service || '';
+    const channel = row.dataset.channel || '';
+    const rule = row.dataset.rule || '';
+    const matchSearch = !search || service.includes(search) || channel.includes(search);
+    const matchRule = !ruleFilter || rule === ruleFilter;
+    const show = matchSearch && matchRule;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  updateRowCount(visible, rows.length);
+}
+
+function updateRowCount(visible, total) {
+  const el = document.getElementById('rowCount');
+  if (visible === undefined) {
+    el.textContent = entries.length + ' kayıt';
+  } else {
+    el.textContent = visible + ' / ' + total + ' kayıt gösteriliyor';
+  }
+}
+
+async function saveEntry() {
+  const service = document.getElementById('inp-service').value.trim();
+  const channel = document.getElementById('inp-channel').value.trim() || '*';
+  const ruleSelect = document.getElementById('inp-rule').value;
+  const rule = ruleSelect === '__custom__'
+    ? document.getElementById('inp-rule-custom').value.trim()
+    : ruleSelect;
+  const reason = document.getElementById('inp-reason').value.trim();
+
+  if (!service || !rule) {
+    alert('Servis adı ve kural tipi zorunludur.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/v1/whitelist', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ service_name: service, channel_code: channel, rule_name: rule, reason })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+    location.reload();
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+let pendingDelete = null;
+
+function deleteEntry(service, channel, rule) {
+  pendingDelete = { service, channel, rule };
+  document.getElementById('deleteConfirmText').textContent =
+    `"${service}" / ${channel} / ${rule} kuralını silmek istediğinize emin misiniz?`;
+  const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+  modal.show();
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    try {
+      const res = await fetch(
+        `/api/v1/whitelist/${encodeURIComponent(service)}/${encodeURIComponent(channel)}/${encodeURIComponent(rule)}`,
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      modal.hide();
+      location.reload();
+    } catch (err) {
+      alert('Silme hatası: ' + err.message);
+    }
+  };
+}
+</script>
+{% endblock %}
