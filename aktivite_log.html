@@ -1,0 +1,377 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Aktivite Logları{% endblock %}
+{% block page_title %}Aktivite Logları{% endblock %}
+
+{% block content %}
+
+<div style="margin-bottom:16px;font-size:13px;color:var(--txt2)">
+  Kullanıcı işlemleri ve sistem olaylarının kayıt defteri. Tüm kritik aksiyonlar burada loglanır.
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+  <div class="card" style="border-left:3px solid var(--blue)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">📋</div>
+      <div style="flex:1">
+        <div id="stat-total" style="font-size:22px;font-weight:700;color:var(--txt)">—</div>
+        <div style="font-size:11px;color:var(--txt3)">Toplam Log</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--green)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">✅</div>
+      <div style="flex:1">
+        <div id="stat-success" style="font-size:22px;font-weight:700;color:var(--green)">—</div>
+        <div style="font-size:11px;color:var(--txt3)">Başarılı</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--red)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">❌</div>
+      <div style="flex:1">
+        <div id="stat-fail" style="font-size:22px;font-weight:700;color:var(--red)">—</div>
+        <div style="font-size:11px;color:var(--txt3)">Başarısız</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--purple,#8b5cf6)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">👤</div>
+      <div style="flex:1">
+        <div id="stat-users" style="font-size:22px;font-weight:700;color:var(--txt)">—</div>
+        <div style="font-size:11px;color:var(--txt3)">Aktif Kullanıcı</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filtreler -->
+<div class="card" style="margin-bottom:16px">
+  <div style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+
+      <!-- Kullanıcı filtresi -->
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Kullanıcı</label>
+        <select id="filter-user" onchange="applyFilters()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;min-width:140px">
+          <option value="">Tümü</option>
+        </select>
+      </div>
+
+      <!-- Aksiyon filtresi -->
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Aksiyon</label>
+        <select id="filter-action" onchange="applyFilters()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;min-width:160px">
+          <option value="">Tüm Aksiyonlar</option>
+          <option value="whitelist">Whitelist</option>
+          <option value="anomaly">Anomali</option>
+          <option value="login">Login</option>
+          <option value="user">Kullanıcı</option>
+          <option value="integration">Entegrasyon</option>
+          <option value="settings">Ayarlar</option>
+        </select>
+      </div>
+
+      <!-- Sonuç filtresi -->
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Sonuç</label>
+        <select id="filter-result" onchange="applyFilters()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;min-width:120px">
+          <option value="">Tümü</option>
+          <option value="success">Başarılı</option>
+          <option value="fail">Başarısız</option>
+        </select>
+      </div>
+
+      <!-- Limit -->
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Limit</label>
+        <select id="filter-limit" onchange="applyFilters()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px">
+          <option value="100">Son 100</option>
+          <option value="250">Son 250</option>
+          <option value="500">Son 500</option>
+          <option value="1000">Son 1000</option>
+        </select>
+      </div>
+
+      <!-- Metin arama -->
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:160px">
+        <label style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Ara</label>
+        <input type="text" id="filter-search" placeholder="Target veya detay ara..."
+          oninput="filterTable()"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px">
+      </div>
+
+      <!-- Butonlar -->
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:10px;color:transparent">x</label>
+        <div style="display:flex;gap:6px">
+          <button class="btn" onclick="resetFilters()">Sıfırla</button>
+          <button class="btn active" onclick="exportCSV()">↓ CSV</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Tablo -->
+<div class="card">
+  <div class="card-hd">
+    <div class="card-title">Aktivite Logları</div>
+    <div id="log-count" style="font-size:12px;color:var(--txt3)">Yükleniyor...</div>
+  </div>
+  <div class="table-wrap">
+    <table id="log-table">
+      <thead>
+        <tr>
+          <th style="width:140px">Zaman</th>
+          <th style="width:100px">Kullanıcı</th>
+          <th style="width:160px">Aksiyon</th>
+          <th>Hedef</th>
+          <th>Detay</th>
+          <th style="width:120px">IP Adresi</th>
+          <th style="width:90px">Sonuç</th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody">
+        <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--txt3)">Yükleniyor...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="log-footer" style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--txt3);display:none"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var token = localStorage.getItem('lumen_token') || '';
+var allLogs = [];
+var allUsers = [];
+
+// Aksiyon badge renkleri
+var actionColors = {
+  'whitelist.add':      '#10b981',
+  'whitelist.delete':   '#ef4444',
+  'anomaly.acknowledge':'#3b82f6',
+  'anomaly.false_positive': '#f97316',
+  'login':              '#8b5cf6',
+  'login.failed':       '#ef4444',
+  'user.create':        '#10b981',
+  'user.delete':        '#ef4444',
+  'user.update':        '#3b82f6',
+  'integration':        '#06b6d4',
+  'settings':           '#6b7280'
+};
+
+function getActionColor(action) {
+  for (var k in actionColors) {
+    if (action && action.startsWith(k)) return actionColors[k];
+  }
+  return 'var(--txt3)';
+}
+
+function getActionLabel(action) {
+  if (!action) return '—';
+  return action.replace(/\./g, ' › ');
+}
+
+function formatDate(dt) {
+  if (!dt) return '—';
+  var d = new Date(dt);
+  var pad = function(n) { return n < 10 ? '0' + n : n; };
+  return pad(d.getDate()) + '.' + pad(d.getMonth()+1) + '.' + d.getFullYear() +
+    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function truncate(str, n) {
+  if (!str) return '—';
+  return str.length > n ? str.substring(0, n) + '…' : str;
+}
+
+function loadLogs() {
+  var user = document.getElementById('filter-user').value;
+  var action = document.getElementById('filter-action').value;
+  var limit = document.getElementById('filter-limit').value;
+
+  var url = '/api/v1/audit-logs?limit=' + limit;
+  if (user) url += '&user_filter=' + encodeURIComponent(user);
+  if (action) url += '&action_filter=' + encodeURIComponent(action);
+
+  document.getElementById('log-tbody').innerHTML =
+    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--txt3)">Yükleniyor...</td></tr>';
+  document.getElementById('log-count').textContent = 'Yükleniyor...';
+
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+  .then(function(r) {
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    allLogs = data;
+    buildUserDropdown(data);
+    updateStats(data);
+    filterTable();
+  })
+  .catch(function(e) {
+    document.getElementById('log-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--red)">Loglar yüklenemedi: ' + e.message + '</td></tr>';
+    document.getElementById('log-count').textContent = 'Hata';
+  });
+}
+
+function buildUserDropdown(data) {
+  var users = [];
+  data.forEach(function(r) { if (r.user && users.indexOf(r.user) === -1) users.push(r.user); });
+  users.sort();
+  allUsers = users;
+  var sel = document.getElementById('filter-user');
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">Tümü</option>';
+  users.forEach(function(u) {
+    var opt = document.createElement('option');
+    opt.value = u;
+    opt.textContent = u;
+    if (u === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function updateStats(data) {
+  var success = data.filter(function(r) { return r.result === 'success'; }).length;
+  var fail = data.filter(function(r) { return r.result !== 'success'; }).length;
+  var users = [];
+  data.forEach(function(r) { if (r.user && users.indexOf(r.user) === -1) users.push(r.user); });
+  document.getElementById('stat-total').textContent = data.length;
+  document.getElementById('stat-success').textContent = success;
+  document.getElementById('stat-fail').textContent = fail;
+  document.getElementById('stat-users').textContent = users.length;
+}
+
+function filterTable() {
+  var search = (document.getElementById('filter-search').value || '').toLowerCase();
+  var resultF = document.getElementById('filter-result').value;
+  var userF = document.getElementById('filter-user').value;
+
+  var rows = allLogs.filter(function(r) {
+    if (resultF === 'success' && r.result !== 'success') return false;
+    if (resultF === 'fail' && r.result === 'success') return false;
+    if (userF && r.user !== userF) return false;
+    if (search) {
+      var hay = ((r.target || '') + ' ' + (r.detail || '') + ' ' + (r.action || '')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  renderTable(rows);
+}
+
+function renderTable(rows) {
+  var tbody = document.getElementById('log-tbody');
+  document.getElementById('log-count').textContent = rows.length + ' kayıt';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--txt3)">Kayıt bulunamadı.</td></tr>';
+    document.getElementById('log-footer').style.display = 'none';
+    return;
+  }
+
+  var html = '';
+  rows.forEach(function(r) {
+    var resultBadge = r.result === 'success'
+      ? '<span class="badge badge-green">✓ başarılı</span>'
+      : '<span class="badge badge-red">✗ ' + (r.result || 'hata') + '</span>';
+
+    var actionColor = getActionColor(r.action);
+    var actionHtml = '<span style="font-size:11px;font-weight:600;color:' + actionColor + ';font-family:monospace">' +
+      getActionLabel(r.action) + '</span>';
+
+    var targetParts = (r.target || '').split('/');
+    var targetHtml = targetParts.length > 1
+      ? '<span style="font-size:11px;color:var(--txt2)">' +
+          targetParts.map(function(p, i) {
+            return i === 0
+              ? '<span style="color:var(--txt3);font-size:10px">' + p + '</span>'
+              : '<span style="color:var(--txt)">' + p + '</span>';
+          }).join(' <span style="color:var(--txt3)">/</span> ') +
+        '</span>'
+      : '<span style="font-size:11px;color:var(--txt2)">' + (r.target || '—') + '</span>';
+
+    html += '<tr>' +
+      '<td class="td-mono" style="font-size:11px;white-space:nowrap">' + formatDate(r.created_at) + '</td>' +
+      '<td><span style="font-size:12px;font-weight:600;color:var(--txt)">' + (r.user || '—') + '</span></td>' +
+      '<td>' + actionHtml + '</td>' +
+      '<td style="max-width:260px;overflow:hidden">' + targetHtml + '</td>' +
+      '<td style="font-size:11px;color:var(--txt3);max-width:200px" title="' + (r.detail || '') + '">' + truncate(r.detail, 60) + '</td>' +
+      '<td class="td-mono" style="font-size:11px;color:var(--txt3)">' + (r.ip_address || '—') + '</td>' +
+      '<td>' + resultBadge + '</td>' +
+      '</tr>';
+  });
+
+  tbody.innerHTML = html;
+
+  var footer = document.getElementById('log-footer');
+  footer.textContent = rows.length + ' kayıt gösteriliyor' + (rows.length < allLogs.length ? ' (' + allLogs.length + ' içinden filtrelendi)' : '');
+  footer.style.display = 'block';
+}
+
+function applyFilters() {
+  loadLogs();
+}
+
+function resetFilters() {
+  document.getElementById('filter-user').value = '';
+  document.getElementById('filter-action').value = '';
+  document.getElementById('filter-result').value = '';
+  document.getElementById('filter-limit').value = '100';
+  document.getElementById('filter-search').value = '';
+  loadLogs();
+}
+
+function exportCSV() {
+  var rows = allLogs;
+  var resultF = document.getElementById('filter-result').value;
+  var userF = document.getElementById('filter-user').value;
+  var search = (document.getElementById('filter-search').value || '').toLowerCase();
+
+  rows = rows.filter(function(r) {
+    if (resultF === 'success' && r.result !== 'success') return false;
+    if (resultF === 'fail' && r.result === 'success') return false;
+    if (userF && r.user !== userF) return false;
+    if (search) {
+      var hay = ((r.target||'') + ' ' + (r.detail||'') + ' ' + (r.action||'')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  var csv = 'ID,Zaman,Kullanici,Aksiyon,Hedef,Detay,IP,Sonuc\n';
+  rows.forEach(function(r) {
+    csv += [r.id, formatDate(r.created_at), r.user, r.action,
+      '"' + (r.target||'').replace(/"/g,'""') + '"',
+      '"' + (r.detail||'').replace(/"/g,'""') + '"',
+      r.ip_address, r.result].join(',') + '\n';
+  });
+
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'aktivite_log_' + new Date().toISOString().substring(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// İlk yükleme
+loadLogs();
+</script>
+{% endblock %}
