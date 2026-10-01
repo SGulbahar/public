@@ -1,0 +1,118 @@
+<!-- MODAL - Bu bloğu anomaliler.html'deki <div id="detail-modal"...> ile </div></div> kapanışına kadar olan kısımla değiştir -->
+
+<div id="detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px;overflow-y:auto">
+  <div style="background:var(--card);border-radius:8px;width:720px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);margin-bottom:40px">
+
+    <!-- Header -->
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="flex:1">
+        <div id="modal-service" style="font-size:15px;font-weight:700;color:var(--txt)"></div>
+        <div id="modal-time" style="font-size:11px;color:var(--txt3);margin-top:2px"></div>
+      </div>
+      <div id="modal-whitelist-badge"></div>
+      <div id="modal-ack-badge"></div>
+      <div id="modal-fp-badge"></div>
+      <div id="modal-severity" style="margin-right:8px"></div>
+      <button onclick="closeDetail()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px;line-height:1">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:20px">
+
+      <!-- Temel bilgiler grid (7 kutu) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Kanal</div>
+          <div id="modal-channel" style="font-size:16px;font-weight:700;color:var(--txt);font-family:monospace"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Hata Oranı</div>
+          <div id="modal-errrate" style="font-size:16px;font-weight:700"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Yanıt Süresi</div>
+          <div id="modal-elapsed" style="font-size:16px;font-weight:700;color:var(--txt)"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Hata Kodu</div>
+          <div id="modal-result-code" style="font-size:14px;font-weight:700;color:var(--txt);font-family:monospace"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">İşlem Sayısı</div>
+          <div id="modal-tx" style="font-size:16px;font-weight:700;color:var(--txt)"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Tespit Tipi</div>
+          <div id="modal-type" style="font-size:13px;font-weight:600"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Anomali Skoru</div>
+          <div id="modal-score" style="font-size:16px;font-weight:700;color:var(--txt)">—</div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Zabbix</div>
+          <div id="modal-zabbix" style="font-size:12px;color:var(--txt2)">—</div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:12px">
+          <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">ITSM Ticket</div>
+          <div id="modal-itsm" style="font-size:12px;color:var(--txt2)">—</div>
+        </div>
+      </div>
+
+      <!-- Hata açıklaması -->
+      <div id="modal-result-desc-wrap" style="background:var(--bg);border-radius:6px;padding:12px;margin-bottom:16px;display:none">
+        <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Hata Açıklaması</div>
+        <div id="modal-result-desc" style="font-size:13px;color:var(--txt2);line-height:1.5"></div>
+      </div>
+
+      <!-- Tespit tipi açıklaması -->
+      <div id="modal-type-desc" style="border-left:3px solid var(--blue);padding:10px 14px;background:var(--blue-light);border-radius:0 6px 6px 0;margin-bottom:16px;font-size:12px;color:var(--txt2)"></div>
+
+      <!-- Aksiyon butonları -->
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <button id="btn-ack" class="btn" onclick="acknowledgeAnomaly()" style="flex:1">
+          ✓ Acknowledge
+        </button>
+        <button id="btn-fp" class="btn" onclick="markFalsePositive()" style="flex:1">
+          ✗ False Positive
+        </button>
+        <button class="btn" onclick="addToWhitelist()" style="flex:1">
+          🛡 Whitelist Ekle
+        </button>
+      </div>
+
+      <!-- False positive sebep input (gizli) -->
+      <div id="fp-reason-wrap" style="display:none;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--txt2);margin-bottom:4px">False Positive Sebebi</div>
+        <div style="display:flex;gap:8px">
+          <input id="fp-reason-input" type="text" placeholder="Neden false positive olduğunu açıklayın..."
+            style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px">
+          <button class="btn active" onclick="submitFP()" style="white-space:nowrap">Gönder</button>
+          <button class="btn" onclick="document.getElementById('fp-reason-wrap').style.display='none'">İptal</button>
+        </div>
+      </div>
+
+      <!-- LLM RCA -->
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em">LLM Root Cause Analysis</div>
+          <button id="modal-rca-btn" class="btn" style="background:var(--blue);color:#fff;border-color:var(--blue)" onclick="loadRCA()">
+            Analiz Yükle
+          </button>
+        </div>
+        <div id="modal-rca" style="background:var(--bg);border-radius:6px;padding:14px;font-size:12px;color:var(--txt2);line-height:1.7;min-height:60px;white-space:pre-wrap;font-family:inherit">
+          RCA görüntülemek için "Analiz Yükle" butonuna tıklayın.
+        </div>
+      </div>
+
+      <!-- Bu servisin son anomalileri -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">
+          Son Anomaliler — Aynı Servis
+        </div>
+        <div id="modal-history" style="font-size:12px;color:var(--txt3)">Yükleniyor...</div>
+      </div>
+
+    </div>
+  </div>
+</div>
