@@ -1,0 +1,293 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Servis Whitelist{% endblock %}
+{% block page_title %}Servis Whitelist{% endblock %}
+
+{% block content %}
+
+<div style="margin-bottom:16px;font-size:13px;color:var(--txt2)">
+  Anomali motorundan muaf tutulan servis ve kural tanımları. Whitelistteki servisler için ilgili kural tetiklenmez.
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+  <div class="card" style="border-left:3px solid var(--green)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">🛡️</div>
+      <div style="flex:1">
+        <div style="font-size:22px;font-weight:700;color:var(--txt)">{{ entries | length }}</div>
+        <div style="font-size:11px;color:var(--txt3)">Toplam Kural</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--blue)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">🗄️</div>
+      <div style="flex:1">
+        <div style="font-size:22px;font-weight:700;color:var(--txt)" id="stat-services">-</div>
+        <div style="font-size:11px;color:var(--txt3)">Unique Servis</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--purple)">
+    <div class="card-hd">
+      <div style="font-size:20px;margin-right:8px">⚙️</div>
+      <div style="flex:1">
+        <div style="font-size:22px;font-weight:700;color:var(--txt)">{{ rules | length }}</div>
+        <div style="font-size:11px;color:var(--txt3)">Kural Tipi</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+  <input type="text" id="searchInput" placeholder="🔍  Servis adı veya kanal ara..." oninput="filterTable()"
+    style="flex:1;padding:7px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">
+  <select id="ruleFilter" onchange="filterTable()"
+    style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--txt);font-size:12px">
+    <option value="">Tüm Kurallar</option>
+    {% for rule in rules %}
+    <option value="{{ rule }}">{{ rule }}</option>
+    {% endfor %}
+  </select>
+  <span id="rowCount" style="font-size:11px;color:var(--txt3);white-space:nowrap"></span>
+  {% if "admin.settings.edit" in user_perms or not user_perms %}
+  <button class="btn active" onclick="openAdd()" style="white-space:nowrap">➕ Kural Ekle</button>
+  {% endif %}
+</div>
+
+<!-- Table -->
+<div class="card" style="padding:0;overflow:hidden">
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:var(--bg);border-bottom:1px solid var(--border)">
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Servis Adı</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Kanal</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Kural Tipi</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Sebep</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Ekleyen</th>
+        <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Tarih</th>
+        {% if "admin.settings.edit" in user_perms or not user_perms %}
+        <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em"></th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      {% for e in entries %}
+      <tr data-service="{{ e.service_name | lower }}" data-channel="{{ (e.channel_code or '') | lower }}" data-rule="{{ e.rule_name }}"
+        style="border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+        <td style="padding:10px 14px;font-weight:600;color:var(--txt)">{{ e.service_name }}</td>
+        <td style="padding:10px 14px">
+          {% if e.channel_code == '*' or not e.channel_code %}
+          <span class="badge badge-gray">Tümü</span>
+          {% else %}
+          <span class="badge badge-blue">{{ e.channel_code }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:10px 14px">
+          <span class="badge badge-yellow">{{ e.rule_name }}</span>
+        </td>
+        <td style="padding:10px 14px;color:var(--txt2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ e.reason or '' }}">
+          {{ e.reason or '—' }}
+        </td>
+        <td style="padding:10px 14px;color:var(--txt3)">{{ e.created_by or '—' }}</td>
+        <td style="padding:10px 14px;color:var(--txt3)">
+          {% if e.created_at %}{{ e.created_at[:10] }}{% else %}—{% endif %}
+        </td>
+        {% if "admin.settings.edit" in user_perms or not user_perms %}
+        <td style="padding:10px 14px;text-align:right">
+          <button class="btn" onclick="confirmDelete('{{ e.service_name }}','{{ e.channel_code }}','{{ e.rule_name }}')"
+            style="color:var(--red);padding:3px 8px;font-size:11px">🗑 Sil</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" style="padding:48px;text-align:center;color:var(--txt3)">
+          <div style="font-size:32px;margin-bottom:8px;opacity:.3">🛡️</div>
+          Henüz whitelist kaydı yok
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Add Modal -->
+<div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:flex-start;justify-content:center;padding-top:80px">
+  <div style="background:var(--card);border-radius:8px;width:480px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="font-size:15px;font-weight:700;color:var(--txt);flex:1">🛡️ Whitelist Kural Ekle</div>
+      <button onclick="closeAdd()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Servis Adı *</label>
+        <input id="inp-service" type="text" placeholder="örn: HAVALE_SERVISI"
+          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Kanal Kodu</label>
+        <input id="inp-channel" type="text" value="*" placeholder="* = Tüm kanallar"
+          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">
+        <div style="font-size:10px;color:var(--txt3);margin-top:3px">Tüm kanallar için * bırakın</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Kural Tipi *</label>
+        <select id="inp-rule" onchange="toggleCustomRule()"
+          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px">
+          {% for rule in rules %}
+          <option value="{{ rule }}">{{ rule }}</option>
+          {% endfor %}
+          <option value="__custom__">— Özel kural adı gir —</option>
+        </select>
+      </div>
+      <div id="custom-rule-div" style="display:none;margin-bottom:12px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Özel Kural Adı</label>
+        <input id="inp-rule-custom" type="text" placeholder="Kural adını girin"
+          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;color:var(--txt2);display:block;margin-bottom:4px;font-weight:600">Sebep</label>
+        <textarea id="inp-reason" rows="2" placeholder="Bu kuralın neden eklendiğini açıklayın"
+          style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--txt);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn active" onclick="saveEntry()" style="flex:1">💾 Kaydet</button>
+        <button class="btn" onclick="closeAdd()">İptal</button>
+      </div>
+      <div id="add-error" style="display:none;margin-top:10px;padding:8px 12px;border-radius:4px;font-size:12px;background:var(--red-light);color:var(--red)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:8px;width:360px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.2);padding:24px">
+    <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:8px">🗑 Kaydı Sil</div>
+    <div id="del-text" style="font-size:13px;color:var(--txt2);margin-bottom:20px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeDelete()">Hayır</button>
+      <button class="btn" id="del-confirm-btn" style="color:var(--red)">Evet, Sil</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const entries = {{ entries | tojson }};
+const token = localStorage.getItem('lumen_token') || '';
+
+document.addEventListener('DOMContentLoaded', function() {
+  const services = new Set(entries.map(e => e.service_name));
+  document.getElementById('stat-services').textContent = services.size;
+  updateRowCount();
+});
+
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const ruleFilter = document.getElementById('ruleFilter').value;
+  const rows = document.querySelectorAll('#tableBody tr[data-service]');
+  let visible = 0;
+  rows.forEach(row => {
+    const match = (!search || row.dataset.service.includes(search) || row.dataset.channel.includes(search))
+      && (!ruleFilter || row.dataset.rule === ruleFilter);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  updateRowCount(visible, rows.length);
+}
+
+function updateRowCount(visible, total) {
+  const el = document.getElementById('rowCount');
+  el.textContent = visible !== undefined ? `${visible} / ${total} kayıt` : `${entries.length} kayıt`;
+}
+
+function openAdd() {
+  document.getElementById('add-modal').style.display = 'flex';
+  document.getElementById('add-error').style.display = 'none';
+  document.getElementById('inp-service').value = '';
+  document.getElementById('inp-channel').value = '*';
+  document.getElementById('inp-reason').value = '';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAdd() {
+  document.getElementById('add-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function toggleCustomRule() {
+  const val = document.getElementById('inp-rule').value;
+  document.getElementById('custom-rule-div').style.display = val === '__custom__' ? 'block' : 'none';
+}
+
+async function saveEntry() {
+  const service = document.getElementById('inp-service').value.trim();
+  const channel = document.getElementById('inp-channel').value.trim() || '*';
+  const ruleSelect = document.getElementById('inp-rule').value;
+  const rule = ruleSelect === '__custom__'
+    ? document.getElementById('inp-rule-custom').value.trim()
+    : ruleSelect;
+  const reason = document.getElementById('inp-reason').value.trim();
+  const errEl = document.getElementById('add-error');
+
+  if (!service || !rule) {
+    errEl.textContent = 'Servis adı ve kural tipi zorunludur.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/v1/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ service_name: service, channel_code: channel, rule_name: rule, reason })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    closeAdd();
+    location.reload();
+  } catch (err) {
+    errEl.textContent = 'Hata: ' + err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+let pendingDelete = null;
+
+function confirmDelete(service, channel, rule) {
+  pendingDelete = { service, channel, rule };
+  document.getElementById('del-text').textContent = `"${service}" / ${channel} / ${rule} kuralını silmek istediğinize emin misiniz?`;
+  document.getElementById('del-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('del-confirm-btn').onclick = doDelete;
+}
+
+function closeDelete() {
+  document.getElementById('del-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  pendingDelete = null;
+}
+
+async function doDelete() {
+  if (!pendingDelete) return;
+  const { service, channel, rule } = pendingDelete;
+  try {
+    const res = await fetch(
+      `/api/v1/whitelist/${encodeURIComponent(service)}/${encodeURIComponent(channel)}/${encodeURIComponent(rule)}`,
+      { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    closeDelete();
+    location.reload();
+  } catch (err) {
+    alert('Silme hatası: ' + err.message);
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAdd(); closeDelete(); } });
+</script>
+{% endblock %}
