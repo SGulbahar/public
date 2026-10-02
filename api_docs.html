@@ -1,0 +1,1262 @@
+{% extends "base.html" %}
+{% block title %}API Dokümantasyonu - Lumen{% endblock %}
+{% block content %}
+<style>
+  .api-layout { display: flex; gap: 0; min-height: calc(100vh - 120px); }
+
+  /* Left Nav */
+  .api-nav {
+    width: 220px; min-width: 220px;
+    border-right: 1px solid var(--border);
+    padding: 1rem 0;
+    position: sticky; top: 0; height: calc(100vh - 120px);
+    overflow-y: auto;
+    background: var(--card);
+  }
+  .api-nav-section {
+    font-size: .65rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--txt3);
+    padding: .6rem 1rem .2rem;
+    margin-top: .5rem;
+  }
+  .api-nav-item {
+    display: flex; align-items: center; gap: .45rem;
+    padding: .35rem 1rem;
+    font-size: .8rem; color: var(--txt2);
+    cursor: pointer; border-radius: 0;
+    transition: background .15s, color .15s;
+    border-left: 3px solid transparent;
+  }
+  .api-nav-item:hover { background: var(--bg); color: var(--txt); }
+  .api-nav-item.active {
+    background: color-mix(in srgb, var(--blue) 10%, transparent);
+    color: var(--blue); border-left-color: var(--blue);
+  }
+  .api-nav-badge {
+    font-size: .6rem; font-weight: 700; padding: .1rem .3rem;
+    border-radius: 3px; letter-spacing: .02em;
+  }
+  .nb-get  { background: color-mix(in srgb,#22c55e 15%,transparent); color:#22c55e; }
+  .nb-post { background: color-mix(in srgb,#3b82f6 15%,transparent); color:#3b82f6; }
+  .nb-put  { background: color-mix(in srgb,#f59e0b 15%,transparent); color:#f59e0b; }
+  .nb-del  { background: color-mix(in srgb,#ef4444 15%,transparent); color:#ef4444; }
+
+  /* Main content */
+  .api-main {
+    flex: 1; padding: 1.5rem 2rem;
+    overflow-y: auto;
+  }
+
+  .api-hero {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .api-hero h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 .4rem; }
+  .api-hero p  { color: var(--txt2); font-size: .85rem; margin: 0 0 .8rem; }
+  .api-hero-meta { display: flex; gap: .75rem; flex-wrap: wrap; }
+  .api-meta-tag {
+    font-size: .72rem; padding: .2rem .6rem;
+    border-radius: 20px; border: 1px solid var(--border);
+    color: var(--txt2);
+  }
+  .api-meta-tag strong { color: var(--txt); }
+
+  /* Group */
+  .api-group { margin-bottom: 2.5rem; }
+  .api-group-title {
+    font-size: 1rem; font-weight: 700;
+    margin: 0 0 1rem; padding-bottom: .5rem;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .api-group-icon { font-size: 1.1rem; }
+
+  /* Endpoint card */
+  .ep-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: .75rem;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .ep-header {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
+  }
+  .ep-header:hover { background: var(--bg); }
+  .ep-header.open { border-bottom: 1px solid var(--border); }
+
+  .method-badge {
+    font-size: .65rem; font-weight: 800;
+    padding: .2rem .55rem; border-radius: 4px;
+    letter-spacing: .04em; min-width: 3rem;
+    text-align: center;
+  }
+  .m-get  { background: color-mix(in srgb,#22c55e 15%,transparent); color:#22c55e; border: 1px solid color-mix(in srgb,#22c55e 30%,transparent); }
+  .m-post { background: color-mix(in srgb,#3b82f6 15%,transparent); color:#3b82f6; border: 1px solid color-mix(in srgb,#3b82f6 30%,transparent); }
+  .m-put  { background: color-mix(in srgb,#f59e0b 15%,transparent); color:#f59e0b; border: 1px solid color-mix(in srgb,#f59e0b 30%,transparent); }
+  .m-delete { background: color-mix(in srgb,#ef4444 15%,transparent); color:#ef4444; border: 1px solid color-mix(in srgb,#ef4444 30%,transparent); }
+  .m-patch { background: color-mix(in srgb,#a855f7 15%,transparent); color:#a855f7; border: 1px solid color-mix(in srgb,#a855f7 30%,transparent); }
+
+  .ep-path {
+    font-family: monospace; font-size: .85rem;
+    color: var(--txt); font-weight: 600;
+  }
+  .ep-path .path-param { color: var(--orange); }
+  .ep-summary { font-size: .8rem; color: var(--txt2); flex: 1; }
+  .ep-auth-icon { font-size: .85rem; color: var(--txt3); title: "Kimlik doğrulama gerekli"; }
+  .ep-chevron {
+    color: var(--txt3); font-size: .8rem;
+    transition: transform .2s;
+  }
+  .ep-header.open .ep-chevron { transform: rotate(180deg); }
+
+  .ep-body { padding: 1rem; display: none; }
+  .ep-body.show { display: block; }
+
+  /* Tabs inside ep */
+  .ep-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+  .ep-tab {
+    padding: .4rem .9rem; font-size: .78rem; font-weight: 600;
+    color: var(--txt2); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .15s;
+  }
+  .ep-tab:hover { color: var(--txt); }
+  .ep-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .ep-tab-panel { display: none; }
+  .ep-tab-panel.active { display: block; }
+
+  /* Params table */
+  .params-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  .params-table th {
+    text-align: left; padding: .4rem .6rem;
+    font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--txt3);
+    border-bottom: 1px solid var(--border);
+  }
+  .params-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .params-table tr:last-child td { border-bottom: none; }
+  .param-name { font-family: monospace; font-weight: 600; color: var(--txt); }
+  .param-required { color: var(--red); font-size: .65rem; font-weight: 700; margin-left: .25rem; }
+  .param-type { font-family: monospace; font-size: .72rem; color: var(--txt3); }
+  .param-in {
+    font-size: .65rem; padding: .1rem .3rem; border-radius: 3px;
+    background: var(--bg); color: var(--txt2); font-weight: 600;
+  }
+  .param-desc { color: var(--txt2); }
+  .param-default { font-family: monospace; font-size: .72rem; color: var(--blue); }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1rem;
+    font-family: monospace; font-size: .78rem;
+    color: var(--txt); overflow-x: auto;
+    line-height: 1.6; white-space: pre;
+  }
+  .code-block .k  { color: #a78bfa; }   /* key */
+  .code-block .s  { color: #86efac; }   /* string */
+  .code-block .n  { color: #fbbf24; }   /* number */
+  .code-block .b  { color: #60a5fa; }   /* bool/null */
+  .code-block .c  { color: var(--txt3); font-style: italic; } /* comment */
+
+  /* Response codes */
+  .resp-list { display: flex; flex-direction: column; gap: .5rem; }
+  .resp-item { display: flex; align-items: flex-start; gap: .75rem; }
+  .resp-code {
+    font-family: monospace; font-size: .8rem; font-weight: 700;
+    padding: .2rem .5rem; border-radius: 4px; min-width: 3rem;
+    text-align: center;
+  }
+  .rc-2xx { background: color-mix(in srgb,#22c55e 15%,transparent); color:#22c55e; }
+  .rc-4xx { background: color-mix(in srgb,#f59e0b 15%,transparent); color:#f59e0b; }
+  .rc-5xx { background: color-mix(in srgb,#ef4444 15%,transparent); color:#ef4444; }
+  .resp-desc { font-size: .8rem; color: var(--txt2); padding-top: .2rem; }
+
+  /* Auth banner */
+  .auth-banner {
+    display: flex; align-items: center; gap: .6rem;
+    background: color-mix(in srgb,#f59e0b 8%,transparent);
+    border: 1px solid color-mix(in srgb,#f59e0b 30%,transparent);
+    border-radius: 6px; padding: .6rem 1rem;
+    font-size: .78rem; color: var(--txt2);
+    margin-bottom: 1rem;
+  }
+  .auth-banner strong { color: #f59e0b; }
+
+  /* Search bar */
+  .api-search-wrap { margin-bottom: 1.5rem; }
+  .api-search {
+    width: 100%; padding: .6rem 1rem;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--txt);
+    font-size: .85rem; outline: none;
+    transition: border-color .2s;
+  }
+  .api-search:focus { border-color: var(--blue); }
+
+  /* Try it section */
+  .try-section { margin-top: 1rem; }
+  .try-url {
+    display: flex; gap: .5rem; align-items: center;
+    margin-bottom: .75rem;
+  }
+  .try-url-input {
+    flex: 1; padding: .45rem .75rem;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--txt); font-size: .8rem;
+    font-family: monospace; outline: none;
+  }
+  .try-url-input:focus { border-color: var(--blue); }
+  .try-btn {
+    padding: .45rem 1rem; border-radius: 6px;
+    background: var(--blue); color: #fff;
+    border: none; cursor: pointer; font-size: .8rem; font-weight: 600;
+    transition: opacity .15s;
+  }
+  .try-btn:hover { opacity: .85; }
+  .try-result { margin-top: .5rem; }
+  .try-result-header { font-size: .72rem; color: var(--txt3); margin-bottom: .3rem; }
+</style>
+
+<div class="api-layout">
+
+  <!-- Left Nav -->
+  <nav class="api-nav" id="apiNav">
+    <div class="api-nav-section">Genel Bakış</div>
+    <div class="api-nav-item active" onclick="scrollTo('overview')">Giriş</div>
+    <div class="api-nav-item" onclick="scrollTo('auth-section')">Kimlik Doğrulama</div>
+
+    <div class="api-nav-section">Auth</div>
+    <div class="api-nav-item" onclick="scrollTo('group-auth')">
+      <span class="api-nav-badge nb-post">POST</span> Login
+    </div>
+
+    <div class="api-nav-section">Anomaliler</div>
+    <div class="api-nav-item" onclick="scrollTo('group-anomalies')">
+      <span class="api-nav-badge nb-get">GET</span> Liste
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-anomalies')">
+      <span class="api-nav-badge nb-get">GET</span> Detay
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-anomalies')">
+      <span class="api-nav-badge nb-post">POST</span> Acknowledge
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-anomalies')">
+      <span class="api-nav-badge nb-post">POST</span> False Positive
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-anomalies')">
+      <span class="api-nav-badge nb-post">POST</span> RCA Analiz
+    </div>
+
+    <div class="api-nav-section">Whitelist</div>
+    <div class="api-nav-item" onclick="scrollTo('group-whitelist')">
+      <span class="api-nav-badge nb-get">GET</span> Liste
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-whitelist')">
+      <span class="api-nav-badge nb-post">POST</span> Ekle
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-whitelist')">
+      <span class="api-nav-badge nb-del">DEL</span> Sil
+    </div>
+
+    <div class="api-nav-section">Zabbix Alarmları</div>
+    <div class="api-nav-item" onclick="scrollTo('group-zabbix')">
+      <span class="api-nav-badge nb-get">GET</span> Liste
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-zabbix')">
+      <span class="api-nav-badge nb-post">POST</span> Senkronize Et
+    </div>
+
+    <div class="api-nav-section">VM Analiz</div>
+    <div class="api-nav-item" onclick="scrollTo('group-vm')">
+      <span class="api-nav-badge nb-get">GET</span> VM Listesi
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-vm')">
+      <span class="api-nav-badge nb-get">GET</span> VM Metrikleri
+    </div>
+
+    <div class="api-nav-section">Servis Sağlığı</div>
+    <div class="api-nav-item" onclick="scrollTo('group-services')">
+      <span class="api-nav-badge nb-get">GET</span> Katalog
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-services')">
+      <span class="api-nav-badge nb-get">GET</span> Sağlık Durumu
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-services')">
+      <span class="api-nav-badge nb-get">GET</span> Topoloji
+    </div>
+
+    <div class="api-nav-section">Yönetim</div>
+    <div class="api-nav-item" onclick="scrollTo('group-admin')">
+      <span class="api-nav-badge nb-get">GET</span> Audit Logları
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-admin')">
+      <span class="api-nav-badge nb-get">GET</span> Kullanıcılar
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-admin')">
+      <span class="api-nav-badge nb-post">POST</span> Kullanıcı Ekle
+    </div>
+
+    <div class="api-nav-section">Dashboard</div>
+    <div class="api-nav-item" onclick="scrollTo('group-dashboard')">
+      <span class="api-nav-badge nb-get">GET</span> Özet İstatistikler
+    </div>
+
+    <div class="api-nav-section">Incident</div>
+    <div class="api-nav-item" onclick="scrollTo('group-incident')">
+      <span class="api-nav-badge nb-get">GET</span> Incident Listesi
+    </div>
+    <div class="api-nav-item" onclick="scrollTo('group-incident')">
+      <span class="api-nav-badge nb-post">POST</span> Incident Oluştur
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="api-main">
+
+    <!-- Search -->
+    <div class="api-search-wrap">
+      <input class="api-search" id="apiSearch" placeholder="🔍  Endpoint ara... (örn: anomali, whitelist, vm)" oninput="filterEndpoints(this.value)">
+    </div>
+
+    <!-- Hero -->
+    <div class="api-hero" id="overview">
+      <h1>Lumen AIOps Platform — API Referansı</h1>
+      <p>Bu sayfa Lumen platformunun tüm REST API endpoint'lerini belgeler. Tüm istekler JSON döner ve JWT Bearer token kimlik doğrulaması gerektirir (login hariç).</p>
+      <div class="api-hero-meta">
+        <span class="api-meta-tag"><strong>Base URL</strong> /api/v1</span>
+        <span class="api-meta-tag"><strong>Format</strong> JSON</span>
+        <span class="api-meta-tag"><strong>Auth</strong> JWT Bearer</span>
+        <span class="api-meta-tag"><strong>Versiyon</strong> v1.0 Alpha</span>
+      </div>
+    </div>
+
+    <!-- Auth info -->
+    <div class="api-group" id="auth-section">
+      <div class="api-group-title"><span class="api-group-icon">🔐</span> Kimlik Doğrulama</div>
+      <div class="card" style="padding:1rem">
+        <p style="font-size:.83rem;color:var(--txt2);margin:0 0 .75rem">Login endpoint'i dışında tüm API isteklerinde <code>Authorization</code> header'ı gereklidir:</p>
+        <div class="code-block"><span class="c">// İstek header'ı</span>
+Authorization: Bearer &lt;jwt_token&gt;
+
+<span class="c">// JavaScript örneği</span>
+fetch('/api/v1/anomalies', {
+  headers: {
+    <span class="k">'Authorization'</span>: <span class="s">`Bearer ${localStorage.getItem('lumen_token')}`</span>,
+    <span class="k">'Content-Type'</span>: <span class="s">'application/json'</span>
+  }
+})</div>
+        <p style="font-size:.78rem;color:var(--txt3);margin:.75rem 0 0">Token süresi dolduğunda 401 Unauthorized döner. Yeni token için <code>POST /api/v1/auth/login</code> kullanın.</p>
+      </div>
+    </div>
+
+    <!-- ─── AUTH ─── -->
+    <div class="api-group" id="group-auth">
+      <div class="api-group-title"><span class="api-group-icon">🔑</span> Auth</div>
+
+      <!-- Login -->
+      <div class="ep-card" data-tags="auth login token">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/auth/login</span>
+          <span class="ep-summary">Kullanıcı girişi — JWT token alır</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'body')">İstek Gövdesi</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <p style="font-size:.8rem;color:var(--txt3);margin:0">Bu endpoint query parametre almaz. Kimlik bilgileri JSON gövdesinde gönderilir.</p>
+          </div>
+          <div class="ep-tab-panel" data-tab="body">
+            <div class="code-block">{
+  <span class="k">"username"</span>: <span class="s">"admin"</span>,        <span class="c">// zorunlu</span>
+  <span class="k">"password"</span>: <span class="s">"your_password"</span>   <span class="c">// zorunlu</span>
+}</div>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">Giriş başarılı — token döner</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">401</span><span class="resp-desc">Hatalı kullanıcı adı veya şifre</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"access_token"</span>: <span class="s">"eyJhbGciOiJIUzI1NiIsInR5..."</span>,
+  <span class="k">"token_type"</span>: <span class="s">"bearer"</span>,
+  <span class="k">"user"</span>: {
+    <span class="k">"id"</span>: <span class="n">1</span>,
+    <span class="k">"username"</span>: <span class="s">"admin"</span>,
+    <span class="k">"role"</span>: <span class="s">"admin"</span>,
+    <span class="k">"permissions"</span>: [<span class="s">"admin.settings.edit"</span>, <span class="s">"admin.users.view"</span>]
+  }
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Me -->
+      <div class="ep-card" data-tags="auth me kullanici profil">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/auth/me</span>
+          <span class="ep-summary">Giriş yapan kullanıcının bilgilerini döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"id"</span>: <span class="n">1</span>,
+  <span class="k">"username"</span>: <span class="s">"admin"</span>,
+  <span class="k">"email"</span>: <span class="s">"admin@example.com"</span>,
+  <span class="k">"role"</span>: <span class="s">"admin"</span>,
+  <span class="k">"permissions"</span>: [<span class="s">"admin.settings.edit"</span>],
+  <span class="k">"created_at"</span>: <span class="s">"2025-01-15T10:00:00Z"</span>,
+  <span class="k">"last_login"</span>: <span class="s">"2026-10-02T08:30:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ANOMALİLER ─── -->
+    <div class="api-group" id="group-anomalies">
+      <div class="api-group-title"><span class="api-group-icon">⚠️</span> Anomaliler</div>
+
+      <!-- GET /anomalies -->
+      <div class="ep-card" data-tags="anomali liste log">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/anomalies</span>
+          <span class="ep-summary">Anomali listesini döner (filtreli, sayfalı)</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Varsayılan</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">limit</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td><span class="param-default">50</span></td><td class="param-desc">Döndürülecek maksimum kayıt sayısı</td></tr>
+                <tr><td><span class="param-name">offset</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td><span class="param-default">0</span></td><td class="param-desc">Sayfalama offset değeri</td></tr>
+                <tr><td><span class="param-name">service</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">Kanal kodu ile filtrele (örn: <code>ECOM_PAY</code>)</td></tr>
+                <tr><td><span class="param-name">severity</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc"><code>DISASTER</code>, <code>HIGH</code>, <code>WARNING</code>, <code>INFO</code></td></tr>
+                <tr><td><span class="param-name">status</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc"><code>active</code>, <code>acknowledged</code>, <code>false_positive</code></td></tr>
+                <tr><td><span class="param-name">since</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">ISO tarih başlangıcı (örn: <code>2026-09-25</code>)</td></tr>
+                <tr><td><span class="param-name">until</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">ISO tarih bitişi</td></tr>
+                <tr><td><span class="param-name">rule_name</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">Tespit kuralına göre filtrele</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">Anomali dizisi</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">401</span><span class="resp-desc">Token geçersiz veya eksik</span></div>
+            </div>
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="n">1042</span>,
+    <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+    <span class="k">"rule_name"</span>: <span class="s">"high_error_rate_zscore"</span>,
+    <span class="k">"severity"</span>: <span class="s">"HIGH"</span>,
+    <span class="k">"anomaly_score"</span>: <span class="n">87.4</span>,
+    <span class="k">"error_rate"</span>: <span class="n">12.5</span>,
+    <span class="k">"response_time_ms"</span>: <span class="n">1840</span>,
+    <span class="k">"transaction_count"</span>: <span class="n">3200</span>,
+    <span class="k">"http_error_code"</span>: <span class="s">"503"</span>,
+    <span class="k">"detection_type"</span>: <span class="s">"ZSCORE"</span>,
+    <span class="k">"detected_at"</span>: <span class="s">"2026-10-02T09:15:22Z"</span>,
+    <span class="k">"acknowledged"</span>: <span class="b">false</span>,
+    <span class="k">"acknowledged_by"</span>: <span class="b">null</span>,
+    <span class="k">"is_false_positive"</span>: <span class="b">false</span>,
+    <span class="k">"zabbix_sent"</span>: <span class="b">true</span>,
+    <span class="k">"zabbix_id"</span>: <span class="n">58821</span>,
+    <span class="k">"itsm_ticket_id"</span>: <span class="s">"INC0012345"</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GET /anomalies/{id} -->
+      <div class="ep-card" data-tags="anomali detay id">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/anomalies/<span class="path-param">{id}</span></span>
+          <span class="ep-summary">Tek anomali detayını döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">id<span class="param-required">*</span></span></td><td><span class="param-in">path</span></td><td><span class="param-type">integer</span></td><td class="param-desc">Anomali ID'si</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">Anomali detay nesnesi</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">404</span><span class="resp-desc">Anomali bulunamadı</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"id"</span>: <span class="n">1042</span>,
+  <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+  <span class="k">"rule_name"</span>: <span class="s">"high_error_rate_zscore"</span>,
+  <span class="k">"severity"</span>: <span class="s">"HIGH"</span>,
+  <span class="k">"anomaly_score"</span>: <span class="n">87.4</span>,
+  <span class="k">"ai_analysis"</span>: <span class="s">"Servis hata oranı son 1 saatte %3'ten %12.5'e yükseldi..."</span>,
+  <span class="k">"raw_metrics"</span>: { <span class="c">/* ham metrik verisi */</span> },
+  <span class="c">/* ...diğer alanlar anomali listesiyle aynı */</span>
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST acknowledge -->
+      <div class="ep-card" data-tags="anomali acknowledge onay">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/anomalies/<span class="path-param">{id}</span>/acknowledge</span>
+          <span class="ep-summary">Anomaliyi kabul eder (üstlenir)</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">id<span class="param-required">*</span></span></td><td><span class="param-in">path</span></td><td><span class="param-type">integer</span></td><td class="param-desc">Anomali ID'si</td></tr>
+              </tbody>
+            </table>
+            <p style="font-size:.78rem;color:var(--txt3);margin:.75rem 0 0">İstek gövdesi gerekmez. Acknowledge eden kullanıcı token'dan otomatik alınır.</p>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">Başarıyla kabul edildi</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"acknowledged_by"</span>: <span class="s">"admin"</span>,
+  <span class="k">"acknowledged_at"</span>: <span class="s">"2026-10-02T09:20:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST false positive -->
+      <div class="ep-card" data-tags="anomali false positive yanlis algilama">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/anomalies/<span class="path-param">{id}</span>/false-positive</span>
+          <span class="ep-summary">Anomaliyi yanlış tespit olarak işaretler</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'body')">İstek Gövdesi</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="body">
+            <div class="code-block">{
+  <span class="k">"reason"</span>: <span class="s">"Planlı bakım penceresi sırasında gerçekleşti"</span>  <span class="c">// zorunlu</span>
+}</div>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">False positive olarak işaretlendi</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"marked_by"</span>: <span class="s">"admin"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST RCA -->
+      <div class="ep-card" data-tags="anomali rca analiz llm yapay zeka">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/anomalies/<span class="path-param">{id}</span>/analyze</span>
+          <span class="ep-summary">LLM ile kök neden analizi (RCA) başlatır</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <p style="font-size:.8rem;color:var(--txt2);margin:0 0 .75rem">Analiz uzun sürebileceğinden yanıt stream veya polling ile gelebilir. Tamamlandığında anomalinin <code>ai_analysis</code> alanı güncellenir.</p>
+            <div class="code-block">{
+  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"analysis"</span>: <span class="s">"ECOM_PAY kanalında hata oranı z-score tabanlı tespitle yakalandı..."</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── WHİTELİST ─── -->
+    <div class="api-group" id="group-whitelist">
+      <div class="api-group-title"><span class="api-group-icon">🛡️</span> Whitelist</div>
+
+      <div class="ep-card" data-tags="whitelist liste servis">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/whitelist</span>
+          <span class="ep-summary">Whitelist'teki tüm servis kurallarını döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">channel_code</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc">Belirli bir kanala göre filtrele</td></tr>
+                <tr><td><span class="param-name">is_active</span></td><td><span class="param-in">query</span></td><td><span class="param-type">boolean</span></td><td class="param-desc">Aktif/pasif duruma göre filtrele</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="n">15</span>,
+    <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+    <span class="k">"rule_name"</span>: <span class="s">"high_error_rate_zscore"</span>,
+    <span class="k">"reason"</span>: <span class="s">"Planlı bakım"</span>,
+    <span class="k">"added_by"</span>: <span class="s">"admin"</span>,
+    <span class="k">"is_active"</span>: <span class="b">true</span>,
+    <span class="k">"created_at"</span>: <span class="s">"2026-10-01T14:30:00Z"</span>,
+    <span class="k">"expires_at"</span>: <span class="b">null</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="whitelist ekle servis kural">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/whitelist</span>
+          <span class="ep-summary">Servisi whitelist'e ekler</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'body')">İstek Gövdesi</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="body">
+            <div class="code-block">{
+  <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,          <span class="c">// zorunlu — VARCHAR(100)</span>
+  <span class="k">"rule_name"</span>: <span class="s">"high_error_rate_zscore"</span>,  <span class="c">// zorunlu — VARCHAR(500)</span>
+  <span class="k">"reason"</span>: <span class="s">"Planlı bakım penceresi"</span>,    <span class="c">// zorunlu</span>
+  <span class="k">"expires_at"</span>: <span class="b">null</span>                       <span class="c">// opsiyonel — ISO datetime</span>
+}</div>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">201</span><span class="resp-desc">Whitelist'e başarıyla eklendi</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">409</span><span class="resp-desc">Bu kural zaten whitelist'te mevcut</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"id"</span>: <span class="n">16</span>,
+  <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+  <span class="k">"rule_name"</span>: <span class="s">"high_error_rate_zscore"</span>,
+  <span class="k">"added_by"</span>: <span class="s">"admin"</span>,
+  <span class="k">"created_at"</span>: <span class="s">"2026-10-02T09:25:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="whitelist sil kaldir">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-delete">DEL</span>
+          <span class="ep-path">/api/v1/whitelist/<span class="path-param">{id}</span></span>
+          <span class="ep-summary">Whitelist kuralını siler</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">id<span class="param-required">*</span></span></td><td><span class="param-in">path</span></td><td><span class="param-type">integer</span></td><td class="param-desc">Whitelist kural ID'si</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">200</span><span class="resp-desc">Başarıyla silindi</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">404</span><span class="resp-desc">Kural bulunamadı</span></div>
+            </div>
+            <div class="code-block">{ <span class="k">"success"</span>: <span class="b">true</span> }</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ZABBİX ─── -->
+    <div class="api-group" id="group-zabbix">
+      <div class="api-group-title"><span class="api-group-icon">📡</span> Zabbix Alarmları</div>
+
+      <div class="ep-card" data-tags="zabbix alarm liste">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/zabbix/alerts</span>
+          <span class="ep-summary">Aktif Zabbix alarmlarını döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">severity</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>DISASTER</code>, <code>HIGH</code>, <code>AVERAGE</code>, <code>WARNING</code></td></tr>
+                <tr><td><span class="param-name">acknowledged</span></td><td><span class="param-in">query</span></td><td><span class="param-type">boolean</span></td><td class="param-desc">Kabul durumuna göre filtrele</td></tr>
+                <tr><td><span class="param-name">limit</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td class="param-desc">Limit (varsayılan: 100)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="n">58821</span>,
+    <span class="k">"host"</span>: <span class="s">"prod-db-01"</span>,
+    <span class="k">"description"</span>: <span class="s">"CPU kullanımı %95'i aştı"</span>,
+    <span class="k">"severity"</span>: <span class="s">"HIGH"</span>,
+    <span class="k">"status"</span>: <span class="s">"PROBLEM"</span>,
+    <span class="k">"acknowledged"</span>: <span class="b">false</span>,
+    <span class="k">"clock"</span>: <span class="n">1727860522</span>,
+    <span class="k">"age_minutes"</span>: <span class="n">45</span>,
+    <span class="k">"linked_anomaly_id"</span>: <span class="n">1042</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="zabbix senkronize sync">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/zabbix/sync</span>
+          <span class="ep-summary">Zabbix'ten alarm verilerini çekip günceller</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"synced_count"</span>: <span class="n">24</span>,
+  <span class="k">"new_alerts"</span>: <span class="n">3</span>,
+  <span class="k">"resolved_alerts"</span>: <span class="n">1</span>,
+  <span class="k">"sync_time"</span>: <span class="s">"2026-10-02T09:30:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── VM ─── -->
+    <div class="api-group" id="group-vm">
+      <div class="api-group-title"><span class="api-group-icon">🖥️</span> VM Analiz</div>
+
+      <div class="ep-card" data-tags="vm sanal makine liste">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/vms</span>
+          <span class="ep-summary">İzlenen sanal makine listesini döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="s">"vm-prod-001"</span>,
+    <span class="k">"name"</span>: <span class="s">"prod-app-server-01"</span>,
+    <span class="k">"ip"</span>: <span class="s">"10.0.1.50"</span>,
+    <span class="k">"cpu_percent"</span>: <span class="n">67.3</span>,
+    <span class="k">"memory_percent"</span>: <span class="n">82.1</span>,
+    <span class="k">"disk_percent"</span>: <span class="n">54.0</span>,
+    <span class="k">"status"</span>: <span class="s">"running"</span>,
+    <span class="k">"alert_count"</span>: <span class="n">2</span>,
+    <span class="k">"updated_at"</span>: <span class="s">"2026-10-02T09:28:00Z"</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="vm metrik cpu memory disk">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/vms/<span class="path-param">{id}</span>/metrics</span>
+          <span class="ep-summary">VM'in zaman serisi metriklerini döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">id<span class="param-required">*</span></span></td><td><span class="param-in">path</span></td><td><span class="param-type">string</span></td><td class="param-desc">VM ID</td></tr>
+                <tr><td><span class="param-name">period</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>1h</code>, <code>6h</code>, <code>24h</code>, <code>7d</code> (varsayılan: <code>24h</code>)</td></tr>
+                <tr><td><span class="param-name">metric</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>cpu</code>, <code>memory</code>, <code>disk</code>, <code>network</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"vm_id"</span>: <span class="s">"vm-prod-001"</span>,
+  <span class="k">"period"</span>: <span class="s">"24h"</span>,
+  <span class="k">"metrics"</span>: [
+    {
+      <span class="k">"timestamp"</span>: <span class="s">"2026-10-01T10:00:00Z"</span>,
+      <span class="k">"cpu_percent"</span>: <span class="n">45.2</span>,
+      <span class="k">"memory_percent"</span>: <span class="n">78.9</span>
+    }
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SERVİSLER ─── -->
+    <div class="api-group" id="group-services">
+      <div class="api-group-title"><span class="api-group-icon">🗂️</span> Servis Sağlığı &amp; Katalog</div>
+
+      <div class="ep-card" data-tags="servis katalog liste">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/services</span>
+          <span class="ep-summary">Servis kataloğunu döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+    <span class="k">"name"</span>: <span class="s">"E-Ticaret Ödeme Servisi"</span>,
+    <span class="k">"owner_team"</span>: <span class="s">"Payment Platform"</span>,
+    <span class="k">"tier"</span>: <span class="n">1</span>,
+    <span class="k">"dependencies"</span>: [<span class="s">"AUTH_SVC"</span>, <span class="s">"DB_PROD"</span>],
+    <span class="k">"health_status"</span>: <span class="s">"degraded"</span>,
+    <span class="k">"active_anomaly_count"</span>: <span class="n">2</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="servis saglik health durum">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/services/<span class="path-param">{channel_code}</span>/health</span>
+          <span class="ep-summary">Belirli bir servisin anlık sağlık durumunu döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"channel_code"</span>: <span class="s">"ECOM_PAY"</span>,
+  <span class="k">"status"</span>: <span class="s">"degraded"</span>,
+  <span class="k">"error_rate"</span>: <span class="n">12.5</span>,
+  <span class="k">"avg_response_ms"</span>: <span class="n">1840</span>,
+  <span class="k">"p99_response_ms"</span>: <span class="n">4200</span>,
+  <span class="k">"tps"</span>: <span class="n">320</span>,
+  <span class="k">"uptime_24h"</span>: <span class="n">98.7</span>,
+  <span class="k">"last_updated"</span>: <span class="s">"2026-10-02T09:29:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="servis topoloji harita grafik">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/services/topology</span>
+          <span class="ep-summary">Servis bağımlılık grafiğini döner (D3 uyumlu)</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"nodes"</span>: [
+    { <span class="k">"id"</span>: <span class="s">"ECOM_PAY"</span>, <span class="k">"name"</span>: <span class="s">"E-Ticaret Ödeme"</span>, <span class="k">"health"</span>: <span class="s">"degraded"</span> }
+  ],
+  <span class="k">"edges"</span>: [
+    { <span class="k">"source"</span>: <span class="s">"ECOM_PAY"</span>, <span class="k">"target"</span>: <span class="s">"AUTH_SVC"</span>, <span class="k">"type"</span>: <span class="s">"sync"</span> }
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── YÖNETİM ─── -->
+    <div class="api-group" id="group-admin">
+      <div class="api-group-title"><span class="api-group-icon">⚙️</span> Yönetim</div>
+
+      <div class="ep-card" data-tags="audit log aktivite kullanici">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/audit-logs</span>
+          <span class="ep-summary">Kullanıcı aktivite loglarını döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> + <strong>admin.settings.edit</strong> yetkisi gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Varsayılan</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">limit</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td><span class="param-default">100</span></td><td class="param-desc">Döndürülecek kayıt sayısı</td></tr>
+                <tr><td><span class="param-name">offset</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td><span class="param-default">0</span></td><td class="param-desc">Sayfalama offset</td></tr>
+                <tr><td><span class="param-name">user_filter</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">Kullanıcı adına göre filtrele</td></tr>
+                <tr><td><span class="param-name">action_filter</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">Aksiyon tipine göre filtrele (örn: <code>whitelist.add</code>)</td></tr>
+                <tr><td><span class="param-name">result_filter</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc"><code>success</code> veya <code>fail</code></td></tr>
+                <tr><td><span class="param-name">since</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td>—</td><td class="param-desc">Başlangıç tarihi (ISO format)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="n">8821</span>,
+    <span class="k">"created_at"</span>: <span class="s">"2026-10-02T09:15:00Z"</span>,
+    <span class="k">"user"</span>: <span class="s">"admin"</span>,
+    <span class="k">"action"</span>: <span class="s">"whitelist.add"</span>,
+    <span class="k">"target"</span>: <span class="s">"ECOM_PAY/high_error_rate_zscore"</span>,
+    <span class="k">"detail"</span>: <span class="s">"Planlı bakım"</span>,
+    <span class="k">"ip_address"</span>: <span class="s">"10.0.0.55"</span>,
+    <span class="k">"result"</span>: <span class="s">"success"</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="kullanici yonetim liste users">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/users</span>
+          <span class="ep-summary">Platform kullanıcılarını listeler</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> + <strong>admin.users.view</strong> yetkisi gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="n">1</span>,
+    <span class="k">"username"</span>: <span class="s">"admin"</span>,
+    <span class="k">"email"</span>: <span class="s">"admin@example.com"</span>,
+    <span class="k">"role"</span>: <span class="s">"admin"</span>,
+    <span class="k">"is_active"</span>: <span class="b">true</span>,
+    <span class="k">"last_login"</span>: <span class="s">"2026-10-02T08:30:00Z"</span>,
+    <span class="k">"created_at"</span>: <span class="s">"2025-01-15T10:00:00Z"</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="kullanici ekle olustur create">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/users</span>
+          <span class="ep-summary">Yeni kullanıcı oluşturur</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> + <strong>admin.users.view</strong> yetkisi gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'body')">İstek Gövdesi</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="body">
+            <div class="code-block">{
+  <span class="k">"username"</span>: <span class="s">"newuser"</span>,        <span class="c">// zorunlu</span>
+  <span class="k">"email"</span>: <span class="s">"user@example.com"</span>, <span class="c">// zorunlu</span>
+  <span class="k">"password"</span>: <span class="s">"secure_pass"</span>,    <span class="c">// zorunlu</span>
+  <span class="k">"role"</span>: <span class="s">"viewer"</span>,           <span class="c">// admin | operator | viewer</span>
+  <span class="k">"permissions"</span>: []             <span class="c">// ek izinler</span>
+}</div>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">201</span><span class="resp-desc">Kullanıcı başarıyla oluşturuldu</span></div>
+              <div class="resp-item"><span class="resp-code rc-4xx">409</span><span class="resp-desc">Kullanıcı adı zaten mevcut</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"id"</span>: <span class="n">12</span>,
+  <span class="k">"username"</span>: <span class="s">"newuser"</span>,
+  <span class="k">"role"</span>: <span class="s">"viewer"</span>,
+  <span class="k">"created_at"</span>: <span class="s">"2026-10-02T09:35:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DASHBOARD ─── -->
+    <div class="api-group" id="group-dashboard">
+      <div class="api-group-title"><span class="api-group-icon">📊</span> Dashboard</div>
+
+      <div class="ep-card" data-tags="dashboard istatistik ozet summary">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/dashboard/summary</span>
+          <span class="ep-summary">Dashboard özet istatistiklerini döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="response">
+            <div class="code-block">{
+  <span class="k">"total_anomalies_today"</span>: <span class="n">47</span>,
+  <span class="k">"active_anomalies"</span>: <span class="n">12</span>,
+  <span class="k">"acknowledged_anomalies"</span>: <span class="n">30</span>,
+  <span class="k">"false_positives"</span>: <span class="n">5</span>,
+  <span class="k">"active_zabbix_alarms"</span>: <span class="n">8</span>,
+  <span class="k">"open_incidents"</span>: <span class="n">3</span>,
+  <span class="k">"services_degraded"</span>: <span class="n">2</span>,
+  <span class="k">"services_healthy"</span>: <span class="n">45</span>,
+  <span class="k">"anomaly_trend_7d"</span>: [
+    { <span class="k">"date"</span>: <span class="s">"2026-09-26"</span>, <span class="k">"count"</span>: <span class="n">32</span> }
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── INCİDENT ─── -->
+    <div class="api-group" id="group-incident">
+      <div class="api-group-title"><span class="api-group-icon">🚨</span> Incident Merkezi</div>
+
+      <div class="ep-card" data-tags="incident liste olay">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-get">GET</span>
+          <span class="ep-path">/api/v1/incidents</span>
+          <span class="ep-summary">Incident listesini döner</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'params')">Parametreler</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="params">
+            <table class="params-table">
+              <thead><tr><th>İsim</th><th>Yer</th><th>Tip</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><span class="param-name">status</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>open</code>, <code>investigating</code>, <code>resolved</code></td></tr>
+                <tr><td><span class="param-name">severity</span></td><td><span class="param-in">query</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>P1</code>, <code>P2</code>, <code>P3</code>, <code>P4</code></td></tr>
+                <tr><td><span class="param-name">limit</span></td><td><span class="param-in">query</span></td><td><span class="param-type">integer</span></td><td class="param-desc">Limit (varsayılan: 50)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="code-block">[
+  {
+    <span class="k">"id"</span>: <span class="s">"INC-2026-0842"</span>,
+    <span class="k">"title"</span>: <span class="s">"ECOM_PAY Yüksek Hata Oranı"</span>,
+    <span class="k">"severity"</span>: <span class="s">"P2"</span>,
+    <span class="k">"status"</span>: <span class="s">"investigating"</span>,
+    <span class="k">"owner"</span>: <span class="s">"sre-team"</span>,
+    <span class="k">"linked_anomaly_ids"</span>: [<span class="n">1042</span>, <span class="n">1043</span>],
+    <span class="k">"created_at"</span>: <span class="s">"2026-10-02T09:00:00Z"</span>,
+    <span class="k">"itsm_ticket"</span>: <span class="s">"INC0012345"</span>
+  }
+]</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ep-card" data-tags="incident olustur create yeni">
+        <div class="ep-header" onclick="toggleEp(this)">
+          <span class="method-badge m-post">POST</span>
+          <span class="ep-path">/api/v1/incidents</span>
+          <span class="ep-summary">Yeni incident oluşturur</span>
+          <span class="ep-auth-icon">🔒</span>
+          <span class="ep-chevron">▾</span>
+        </div>
+        <div class="ep-body">
+          <div class="auth-banner">🔑 <strong>Bearer Token</strong> gereklidir</div>
+          <div class="ep-tabs">
+            <div class="ep-tab active" onclick="switchTab(this,'body')">İstek Gövdesi</div>
+            <div class="ep-tab" onclick="switchTab(this,'response')">Yanıt</div>
+          </div>
+          <div class="ep-tab-panel active" data-tab="body">
+            <div class="code-block">{
+  <span class="k">"title"</span>: <span class="s">"ECOM_PAY Yüksek Hata Oranı"</span>,  <span class="c">// zorunlu</span>
+  <span class="k">"severity"</span>: <span class="s">"P2"</span>,                            <span class="c">// zorunlu</span>
+  <span class="k">"description"</span>: <span class="s">"Ödeme servisi %12 hata oranında"</span>,
+  <span class="k">"linked_anomaly_ids"</span>: [<span class="n">1042</span>],
+  <span class="k">"owner"</span>: <span class="s">"sre-team"</span>
+}</div>
+          </div>
+          <div class="ep-tab-panel" data-tab="response">
+            <div class="resp-list" style="margin-bottom:1rem">
+              <div class="resp-item"><span class="resp-code rc-2xx">201</span><span class="resp-desc">Incident oluşturuldu</span></div>
+            </div>
+            <div class="code-block">{
+  <span class="k">"id"</span>: <span class="s">"INC-2026-0843"</span>,
+  <span class="k">"title"</span>: <span class="s">"ECOM_PAY Yüksek Hata Oranı"</span>,
+  <span class="k">"severity"</span>: <span class="s">"P2"</span>,
+  <span class="k">"status"</span>: <span class="s">"open"</span>,
+  <span class="k">"created_at"</span>: <span class="s">"2026-10-02T09:40:00Z"</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /api-main -->
+</div><!-- /api-layout -->
+
+<script>
+function toggleEp(hdr) {
+  const body = hdr.nextElementSibling;
+  const isOpen = hdr.classList.contains('open');
+  hdr.classList.toggle('open', !isOpen);
+  body.classList.toggle('show', !isOpen);
+}
+
+function switchTab(tab, name) {
+  const body = tab.closest('.ep-body');
+  body.querySelectorAll('.ep-tab').forEach(t => t.classList.remove('active'));
+  body.querySelectorAll('.ep-tab-panel').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active');
+  const panel = [...body.querySelectorAll('.ep-tab-panel')]
+    .find(p => p.dataset.tab === name);
+  if (panel) panel.classList.add('active');
+}
+
+function scrollTo(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.api-nav-item').forEach(i => i.classList.remove('active'));
+}
+
+function filterEndpoints(q) {
+  const s = q.toLowerCase().trim();
+  document.querySelectorAll('.ep-card').forEach(card => {
+    const tags  = (card.dataset.tags || '').toLowerCase();
+    const text  = card.querySelector('.ep-path')?.textContent.toLowerCase() || '';
+    const summ  = card.querySelector('.ep-summary')?.textContent.toLowerCase() || '';
+    card.style.display = (!s || tags.includes(s) || text.includes(s) || summ.includes(s)) ? '' : 'none';
+  });
+  // hide/show group titles
+  document.querySelectorAll('.api-group').forEach(g => {
+    const visible = [...g.querySelectorAll('.ep-card')].some(c => c.style.display !== 'none');
+    g.style.display = visible ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
